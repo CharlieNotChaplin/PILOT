@@ -74,6 +74,30 @@ def extract_cells_from_gene_expression_for_clustering(adata,sample_col,col_cell,
         
         df.to_csv(path_results+cell+'.csv')
         return df
+    
+def try_with_python(data, pred_labels, group1, group2, subresult):
+    from pydeseq2.dds import DeseqDataSet
+    from pydeseq2.ds import DeseqStats
+
+    # 1. Create a DeseqDataSet object from your counts
+    # Note: PyDESeq2 expects the data to be raw counts (integers)
+    dds = DeseqDataSet(
+        counts=subresult,
+        metadata=selected_pred_labels,
+        design_factors="Predicted_Labels"
+    )
+
+    # 2. Run the DESeq2 normalization and dispersion estimation
+    # This replaces the 'lmFit' and 'eBayes' steps
+    dds.deseq2()
+
+    # 3. Perform the statistical test
+    stat_res = DeseqStats(dds, contrast=["Predicted_Labels", group2, group1])
+    stat_res.summary()
+    res = stat_res.results_df
+
+
+
 def compute_diff_expressions(adata,cell_type: str = None,
                              proportions: pd.DataFrame = None,
                              selected_genes: list = None,
@@ -189,23 +213,35 @@ def compute_diff_expressions(adata,cell_type: str = None,
     pandas2ri.activate()
     
     # prepare data for R
-    proportions.index = proportions['sampIeD']
-   
+    proportions.index = proportions['sampleID']
+
+    ## proportions: table [sampleID     | predicted_labels]
+    ##                     Patient_01   | Tumor 1
+    ##                     Patient_02   | Tumor 2
+    ##                     Patient_03   | Tumor 1
+    ## What it does: 
+        ## links every individual cell back to Patient Group it belongs to.
+    ## What it means: 
+        ## If Cell #105 comes from "Patient X," and PILOT previously labeled 
+        ## "Patient X" as belonging to Tumor 1, this code ensures that Cell #105 
+        ## is tagged as a "Tumor 1" sample for the statistical test.
     if selected_genes is None:
         selected_genes = cells.iloc[:,1:-1].columns
     data = cells[selected_genes]
     pred_labels = pd.DataFrame()
     pls = proportions.loc[cells['sampleID']]
     pred_labels['Predicted_Labels'] = pls[label_name]
-    pred_labels['sampleID'] = pls['sampIeD']
+    pred_labels['sampleID'] = pls['sampleID']
     
     # load R packages and data
-    R=robjects.r
-    R('library(limma)')
-    R.assign('data',data)
-    R.assign('pred_labels', pred_labels)
-    R.assign('selected_groups', [group1, group2])
+    R=robjects.r ## create R object/"portal" in python
+    R('library(limma)') 
+    R.assign('data',data) ## gene expression matrix: turn pd dataframe into R df, "copy" it into R memory
+    R.assign('pred_labels', pred_labels) ## same, which cell is in which group
+    R.assign('selected_groups', [group1, group2]) ## two groups to compare, i.e. tumor1, tumor2
+    ## filters metadata to keep ONLY cells belonging to the 2 compared groups 
     R('selected_pred_labels <- pred_labels[which(pred_labels$Predicted_Labels %in% selected_groups),]')
+    ## uses those filtered labels to grab corresponding gene expression rows from main data matrix
     R('subresult <- data[row.names(selected_pred_labels),]')
 
     # delete for memory
@@ -214,8 +250,23 @@ def compute_diff_expressions(adata,cell_type: str = None,
     
     # run limma
     print('run limma lmFit')
+    ## t(subresult): R expects genes in rows, samples in columns, but Python stores the other way around
+        ## t() transposes matrix.
+    ## as.factor(selected_pred_labels$Predicted_Labels) — Categorizing Groups
+        ## selected_pred_labels$Predicted_Labels: Accesses column of labels (e.g., "Sick" vs. "Healthy")
+        ## as.factor(): Converts strings into statistical Factor. R needs factors to understand that "Sick" isn't just text, but a distinct experimental group.
+    ## unclass(...) — The "Matrix" Trick
+        ## lmFit: requires "Design Matrix" (matrix of 0s + 1s indicating which sample belongs to which group).
+        ## unclass() on a factor effectively turns those labels into their underlying numeric codes (1, 2, 3...).
+    ## limma::lmFit(...) — The Linear Model
+        ## Fits multiple linear regression model to every gene simultaneously
+        ## Input: Your gene expression (subresult) + experimental groups (design)
+        ## Process: Calculates "coefficients" (avg expression level for each label group) + residuals (noise)
+        ## Output: Returns Large MArrayLM object -> contains all slopes, intercepts, errors for every gene in your study.
     R('fit <- limma::lmFit(t(subresult), design = unclass(as.factor(selected_pred_labels$Predicted_Labels)))')
     print('run limma eBayes')
+    ##
+    ## 
     R('fit <-  limma::eBayes(fit)')
     R('res <- limma::topTable(fit, n = 2000)')
     R('res <- res[colnames(data), ]')
@@ -237,6 +288,7 @@ def compute_diff_expressions(adata,cell_type: str = None,
                              font_weight_legend=font_weight_legend,
                              size_legend=size_legend,dpi=dpi)
     
+
 
 
     
