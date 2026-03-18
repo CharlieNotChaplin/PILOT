@@ -353,6 +353,8 @@ def clustering_emd(adata,res=0.3,metric='cosine',groupby_col='Leiden',swap_axes=
     sc.pl.heatmap(adata_emd,adata_emd.obs.sampleID,groupby=[groupby_col],swap_axes=swap_axes,cmap=cmap,dendrogram=dendrogram,show_gene_labels=show_gene_labels,var_group_rotation=var_group_rotation,figsize=figsize,save=save)
     return proportion_df
     
+
+    
     
 
 
@@ -1861,6 +1863,8 @@ def volcano_plot(scores, foldchanges, p_values, cell_type, feature1, feature2, f
     Returns:
         None
     """
+
+    
     
     df = pd.DataFrame(columns=['log2FoldChange', 'nlog10', 'symbol'])
     df['log2FoldChange'] = foldchanges
@@ -1917,7 +1921,6 @@ def volcano_plot(scores, foldchanges, p_values, cell_type, feature1, feature2, f
     subset_labels_fold_change_neg = subset_labels_fold_change_neg.head(n_n)['symbol'].values
     # Combine the subsets of genes
     subset_labels = np.concatenate([subset_labels_fold_change_pos, subset_labels_fold_change_neg])
-    print("labels: ", subset_labels)
     for i in range(len(df)):
         if df.iloc[i].symbol in subset_labels:
             if df.iloc[i].nlog10 >= pv_thr and (df.iloc[i].log2FoldChange >= fc_thr):
