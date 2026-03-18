@@ -6,6 +6,11 @@
 **/__pycache__/
 .git/
 */cells.tar.gz/*
+*/Datasets/*
+*/Results_PILOT/*
+*/build/*
+*/Results_PILOTDiff_Expressions_Results/*
+
 
 */cells/*
 
