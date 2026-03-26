@@ -23,15 +23,7 @@ import matplotlib.pyplot as plt
 
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.ds import DeseqStats
-
-import rpy2.robjects as robjects
-import rpy2.robjects.numpy2ri
-from rpy2.robjects import pandas2ri
-
-from rpy2.rinterface_lib.callbacks import logger as rpy2_logger
-import logging
-rpy2_logger.setLevel(logging.ERROR)
-pandas2ri.activate()
+# 
 
 
 def plot_cell_numbers(adata, proportion_df,
@@ -96,8 +88,7 @@ def plot_cell_numbers(adata, proportion_df,
     plt.legend(handles, labels, fontsize = 24)
     plt.show()
 
-# pydeseq
-def compute_pseudobulk_DE2(
+def compute_pseudobulk_DE(
         cluster_counts: pd.DataFrame = None,
         cluster_metadata: pd.DataFrame = None,
         group1: str = "Tumor1",
@@ -145,12 +136,12 @@ def compute_pseudobulk_DE2(
     my_cluster_counts = cluster_counts.loc[my_cluster_metadata.index].copy()
 
     my_cluster_metadata["stage"] = pd.Categorical(
-        my_cluster_metadata["stage"],
+        #my_cluster_metadata["stage"],
+        my_cluster_metadata[cluster_col],
         categories=[group2, group1],  # reference first
         ordered=True,
     )
 
-    # Initialize DeseqDataSet
     try:
         dds = DeseqDataSet(
             counts=my_cluster_counts.astype(int),
@@ -163,8 +154,10 @@ def compute_pseudobulk_DE2(
         # Run DESeq2 pipeline
         dds.deseq2()
 
-        # Compute results and apply LFC Shrinkage (apeglm)
-        stat_res = DeseqStats(dds, inference="apeglm", n_cpus=n_cpus)
+         # Compute results, apply LFC Shrinkage (apeglm)
+        stat_res = DeseqStats(dds, 
+                              contrast=['stage', group2, group1], 
+                              n_cpus=n_cpus)
         
         # Executes Wald test and applies shrinkage
         stat_res.summary()
@@ -179,74 +172,7 @@ def compute_pseudobulk_DE2(
         print(f"Error during DE analysis: {e}")
         return None
 
-# R    
-def compute_pseudobulk_DE(
-        cluster_counts: pd.DataFrame = None,
-        cluster_metadata: pd.DataFrame = None,
-        group1: str = None,
-        group2: str = None,
-        cluster_col: str = None):
-    
-    """
-    Parameters
-    ----------
-    aggr_counts : pd.DataFrame, optional
-        DESCRIPTION. The default is None.
-    metadata : pd.DataFrame, optional
-        DESCRIPTION. The default is None.
-    cell_type : str, optional
-        DESCRIPTION. The default is None.
-    group1 : str, optional
-        DESCRIPTION. The default is None.
-    group2 : str, optional
-        DESCRIPTION. The default is None.
-    n_cpus : int, optional
-        DESCRIPTION. The default is 8.
-
-    Returns
-    -------
-    my_stat_res : TYPE
-        DESCRIPTION.
-
-    """
-
-    # consider DE between two group of interest
-    my_cluster_metadata = cluster_metadata[ (cluster_metadata[cluster_col] == group1 ) | (cluster_metadata[cluster_col] == group2)]
-    my_cluster_counts = cluster_counts.loc[my_cluster_metadata.index]
-
-    R = robjects.r
-    R('library(SingleCellExperiment)')
-    R('library(DESeq2)')
-    R('library(apeglm)')
-    R('library(tidyverse, verbose = FALSE)')
-    R.assign('cluster_counts', my_cluster_counts)
-    R.assign('cluster_metadata', my_cluster_metadata)
-
-    try:
-
-        R('dds <- DESeqDataSetFromMatrix(round(t(cluster_counts)), colData = cluster_metadata, design = ~ stage)')
-        R('rld <- rlog(dds, blind = TRUE)')
-        R('dds <- DESeq(dds)')
-        R(' \
-        mylist <- list(resultsNames(dds)); \
-        for(coef in resultsNames(dds)){ \
-            if(coef != "Intercept"){ \
-                print(coef); \
-                res <- results(dds, name = coef, alpha = 0.05); \
-                res <- lfcShrink(dds, coef = coef, res = res, type = "apeglm"); \
-                res_tbl <- res %>% data.frame() %>% rownames_to_column(var = "gene") %>% as_tibble() %>% arrange(padj); \
-                mylist[[coef]] <- res_tbl; \
-            } \
-        } \
-        ')
-        
-        res = R('''mylist''')
-        return res
-    except rpy2.rinterface_lib.embedded.RRuntimeError:
-        return None
-
-# pydeseq
-def compute_pseudobulk_PCA2(
+def compute_pseudobulk_PCA(
         cluster_counts: pd.DataFrame = None,
         cluster_metadata: pd.DataFrame = None):
     """
@@ -278,67 +204,17 @@ def compute_pseudobulk_PCA2(
         dds.deseq2()
 
         # Get regularized log-transformed counts 
-        rld_matrix = dds.rlog_norm()
+        dds.vst()
 
         rld_df = pd.DataFrame(
-            rld_matrix.T,  
-            index=rld_matrix.columns,  # genes as index
-            columns=rld_matrix.index   # samples as columns
+            dds.layers["vst_counts"].T,
+            index=cluster_counts.columns,    # genes as index (from input)
+            columns=cluster_counts.index     # samples as columns (from input)
         )
-        
         return rld_df
         
     except Exception as e:
         print(f"Error during rlog computation: {e}")
-        return None
-
-# R    
-def compute_pseudobulk_PCA(
-        cluster_counts: pd.DataFrame = None,
-        cluster_metadata: pd.DataFrame = None):
-    
-    """
-    Parameters
-    ----------
-    aggr_counts : pd.DataFrame, optional
-        DESCRIPTION. The default is None.
-    metadata : pd.DataFrame, optional
-        DESCRIPTION. The default is None.
-    cell_type : str, optional
-        DESCRIPTION. The default is None.
-    group1 : str, optional
-        DESCRIPTION. The default is None.
-    group2 : str, optional
-        DESCRIPTION. The default is None.
-    n_cpus : int, optional
-        DESCRIPTION. The default is 8.
-
-    Returns
-    -------
-    my_stat_res : TYPE
-        DESCRIPTION.
-
-    """
-
-    
-    # consider DE between two group of interest
-
-    R = robjects.r
-    R('library(SingleCellExperiment)')
-    R('library(DESeq2)')
-    R('library(apeglm)')
-    R('library(tidyverse, verbose = FALSE)')
-    R.assign('cluster_counts', cluster_counts)
-    R.assign('cluster_metadata', cluster_metadata)
-
-    try:
-
-        R('dds <- DESeqDataSetFromMatrix(round(t(cluster_counts)), colData = cluster_metadata, design = ~ stage)')
-        R('rld <- rlog(dds, blind = TRUE)')
-        R('dds <- DESeq(dds)')
-        rld = R('''as.data.frame(assay(rld))''')        
-        return rld
-    except rpy2.rinterface_lib.embedded.RRuntimeError:
         return None
     
 def plotPCA_subgroups(proportions, deseq2_counts, cell_type, my_pal, cluster_col):
@@ -375,137 +251,6 @@ def map_color_ps(a, low_fc_thrr, high_fc_thrr, pv_thrr):
         return 'very lower'
     else:
         return 'no'
-
-def volcano_plot_ps(data, symbol, foldchange, p_value,
-                 cell_type,
-                 feature1,
-                 feature2,
-                 low_fc_thr = 1,
-                 high_fc_thr = 1,
-                 pv_thr = 1,
-                 figsize = (20,10),
-                 output_path = None,
-                 my_pal = None,
-                 fontsize: int = 14
-                ):
-    """
-    
-
-    Parameters
-    ----------
-    data : TYPE
-        DESCRIPTION.
-    symbol : TYPE
-        DESCRIPTION.
-    foldchange : TYPE
-        DESCRIPTION.
-    p_value : TYPE
-        DESCRIPTION.
-    cell_type : TYPE
-        DESCRIPTION.
-    feature1 : TYPE
-        DESCRIPTION.
-    feature2 : TYPE
-        DESCRIPTION.
-    low_fc_thr : TYPE, optional
-        DESCRIPTION. The default is 1.
-    high_fc_thr : TYPE, optional
-        DESCRIPTION. The default is 1.
-    pv_thr : TYPE, optional
-        DESCRIPTION. The default is 1.
-    figsize : TYPE, optional
-        DESCRIPTION. The default is (20,10).
-    output_path : TYPE, optional
-        DESCRIPTION. The default is None.
-    my_pal : TYPE, optional
-        DESCRIPTION. The default is None.
-    fontsize : int, optional
-        DESCRIPTION. The default is 14.
-
-    Returns
-    -------
-    str
-        DESCRIPTION.
-
-    """
-    
-    df = pd.DataFrame(columns=['log2FoldChange', 'nlog10', 'symbol'])
-    df['log2FoldChange'] = data[foldchange]
-    df['nlog10'] = -np.log10(data[p_value].values)
-    df['symbol'] = data[symbol].values
-    
-    color1 = my_pal[feature1]
-    color2 = my_pal[feature2]    
-    
-    df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    df.dropna(subset=["nlog10"], how="all", inplace=True)
-    
-
-    selected_labels = df.loc[ (df.log2FoldChange <= low_fc_thr) & (df.log2FoldChange >= high_fc_thr) & \
-                             (df['nlog10'] >= pv_thr)]['symbol'].values
-    
-    def map_shape(symbol):
-        if symbol in selected_labels:
-            return 'important'
-        return 'not'
-    
-    df['color'] = df[['log2FoldChange', 'symbol', 'nlog10']].apply(map_color_ps, low_fc_thrr = low_fc_thr, 
-                                                                   high_fc_thrr = high_fc_thr,
-                                                                   pv_thrr = pv_thr, axis = 1)
-    df['shape'] = df.symbol.map(map_shape)
-    df['baseMean'] = df.nlog10*10
-
-    
-    plt.figure(figsize = figsize, frameon=False, dpi=100)
-    plt.style.use('default')
-
-    ax = sns.scatterplot(data = df, x = 'log2FoldChange', y = 'nlog10', 
-                         hue = 'color', hue_order = ['no', 'very higher', 'very lower'],
-                         palette = ['lightgrey', color2, color1],
-                         style = 'shape', style_order = ['not', 'important'],
-                         markers = ['o', 'o'], 
-                         size = 'baseMean', sizes = (40, 400)
-                        )
-
-    ax.axhline(pv_thr, zorder = 0, c = 'k', lw = 2, ls = '--')
-    ax.axvline(high_fc_thr, zorder = 0, c = 'k', lw = 2, ls = '--')
-    ax.axvline(-low_fc_thr, zorder = 0, c = 'k', lw = 2, ls = '--')
-
-    texts = []
-    for i in range(len(df)):
-        if df.iloc[i].nlog10 >= pv_thr and (df.iloc[i].log2FoldChange >= high_fc_thr):
-            texts.append(plt.text(x = df.iloc[i].log2FoldChange, y = df.iloc[i].nlog10, s = df.iloc[i].symbol,
-                                 fontsize = fontsize, weight = 'bold', family = 'sans-serif'))
-        if df.iloc[i].nlog10 >= pv_thr and ( df.iloc[i].log2FoldChange <= -low_fc_thr):
-            texts.append(plt.text(x = df.iloc[i].log2FoldChange, y = df.iloc[i].nlog10, s = df.iloc[i].symbol,
-                                 fontsize = fontsize + 2, weight = 'bold', family = 'sans-serif'))
-    adjust_text(texts)
-
-    custom_lines = [Line2D([0], [0], marker='o', color='w', markerfacecolor=color2, markersize=fontsize),
-                   Line2D([0], [0], marker='o', color='w', markerfacecolor=color1, markersize=fontsize)]
-
-    plt.legend(custom_lines, ['Higher expressions in ' + feature2, 'Higher expressions in ' + feature1], loc = 1,
-               bbox_to_anchor = (1,1.1), frameon = False, prop = {'weight': 'normal', 'size': fontsize})
-
-    for axis in ['bottom', 'left']:
-        ax.spines[axis].set_linewidth(2)
-
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-
-    ax.tick_params(width = 2)
-    ax.set_ylim(bottom=0)
-    plt.title("Expression Score \n " + feature1 + " - " + feature2, fontsize = fontsize + 4)
-    plt.xticks(size = fontsize, weight = 'bold')
-    plt.yticks(size = fontsize, weight = 'bold')
-
-    plt.xlabel("$log_{2}$ (Fold Change)", size = fontsize + 2)
-    plt.ylabel("-$log_{10}$ (P-value)", size = fontsize + 2)
-
-    if output_path is not None:
-        plt.savefig(output_path + "/volcano_" + str(feature1) + "-" + str(feature2) + "_FC.pdf",
-                    dpi = 100, bbox_inches = 'tight', facecolor = 'white')
-    plt.show()
     
 def gene_annotation_cell_type_subgroup(data: pd.DataFrame = None,
                                        symbol: str = 'gene',
@@ -638,7 +383,6 @@ def get_sig_genes(data, symbol, foldchange, p_value, cell_type,
 
     return data
 
-# pydeseq
 def get_pseudobulk_DE(adata: ad.AnnData,
                       proportion_df: pd.DataFrame,
                       cell_type: str,
@@ -754,7 +498,7 @@ def get_pseudobulk_DE(adata: ad.AnnData,
         cluster_counts = cluster_counts.loc[:, (cluster_counts != 0).any(axis=0)]
     
         print("Computing rlog-normalized counts using PyDESeq2...")
-        rld = compute_pseudobulk_PCA2(cluster_counts, cluster_metadata)
+        rld = compute_pseudobulk_PCA(cluster_counts, cluster_metadata)
     
         if rld is not None:
             if not os.path.exists(save_path):
@@ -775,7 +519,7 @@ def get_pseudobulk_DE(adata: ad.AnnData,
         data = None
         if load == False:
             # Use adapted PyDESeq2 function1_adapted_to_function2
-            res = compute_pseudobulk_DE2(cluster_counts, cluster_metadata,
+            res = compute_pseudobulk_DE(cluster_counts, cluster_metadata,
                                        group1=groups[0],
                                        group2=groups[1],
                                        cluster_col=cluster_col)
@@ -810,10 +554,265 @@ def get_pseudobulk_DE(adata: ad.AnnData,
                                                  my_pal=my_pal)
         j += 1
 
+#--------------------------------------------------------------------------------------------------------------------
+#                                R Versions/old versions
+#--------------------------------------------------------------------------------------------------------------------
+
+import rpy2.robjects as robjects
+import rpy2.robjects.numpy2ri
+from rpy2.robjects import pandas2ri
+
+from rpy2.rinterface_lib.callbacks import logger as rpy2_logger
+import logging
+rpy2_logger.setLevel(logging.ERROR)
+pandas2ri.activate()
 
 
-# R
-def get_pseudobulk_DE(adata: ad.AnnData,
+def volcano_plot_ps(data, symbol, foldchange, p_value,
+                 cell_type,
+                 feature1,
+                 feature2,
+                 low_fc_thr = 1,
+                 high_fc_thr = 1,
+                 pv_thr = 1,
+                 figsize = (20,10),
+                 output_path = None,
+                 my_pal = None,
+                 fontsize: int = 14
+                ):
+    """
+    
+
+    Parameters
+    ----------
+    data : TYPE
+        DESCRIPTION.
+    symbol : TYPE
+        DESCRIPTION.
+    foldchange : TYPE
+        DESCRIPTION.
+    p_value : TYPE
+        DESCRIPTION.
+    cell_type : TYPE
+        DESCRIPTION.
+    feature1 : TYPE
+        DESCRIPTION.
+    feature2 : TYPE
+        DESCRIPTION.
+    low_fc_thr : TYPE, optional
+        DESCRIPTION. The default is 1.
+    high_fc_thr : TYPE, optional
+        DESCRIPTION. The default is 1.
+    pv_thr : TYPE, optional
+        DESCRIPTION. The default is 1.
+    figsize : TYPE, optional
+        DESCRIPTION. The default is (20,10).
+    output_path : TYPE, optional
+        DESCRIPTION. The default is None.
+    my_pal : TYPE, optional
+        DESCRIPTION. The default is None.
+    fontsize : int, optional
+        DESCRIPTION. The default is 14.
+
+    Returns
+    -------
+    str
+        DESCRIPTION.
+
+    """
+    
+    df = pd.DataFrame(columns=['log2FoldChange', 'nlog10', 'symbol'])
+    df['log2FoldChange'] = data[foldchange]
+    df['nlog10'] = -np.log10(data[p_value].values)
+    df['symbol'] = data[symbol].values
+    
+    color1 = my_pal[feature1]
+    color2 = my_pal[feature2]    
+    
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    df.dropna(subset=["nlog10"], how="all", inplace=True)
+    
+
+    selected_labels = df.loc[ (df.log2FoldChange <= low_fc_thr) & (df.log2FoldChange >= high_fc_thr) & \
+                             (df['nlog10'] >= pv_thr)]['symbol'].values
+    
+    def map_shape(symbol):
+        if symbol in selected_labels:
+            return 'important'
+        return 'not'
+    
+    df['color'] = df[['log2FoldChange', 'symbol', 'nlog10']].apply(map_color_ps, low_fc_thrr = low_fc_thr, 
+                                                                   high_fc_thrr = high_fc_thr,
+                                                                   pv_thrr = pv_thr, axis = 1)
+    df['shape'] = df.symbol.map(map_shape)
+    df['baseMean'] = df.nlog10*10
+
+    
+    plt.figure(figsize = figsize, frameon=False, dpi=100)
+    plt.style.use('default')
+
+    ax = sns.scatterplot(data = df, x = 'log2FoldChange', y = 'nlog10', 
+                         hue = 'color', hue_order = ['no', 'very higher', 'very lower'],
+                         palette = ['lightgrey', color2, color1],
+                         style = 'shape', style_order = ['not', 'important'],
+                         markers = ['o', 'o'], 
+                         size = 'baseMean', sizes = (40, 400)
+                        )
+
+    ax.axhline(pv_thr, zorder = 0, c = 'k', lw = 2, ls = '--')
+    ax.axvline(high_fc_thr, zorder = 0, c = 'k', lw = 2, ls = '--')
+    ax.axvline(-low_fc_thr, zorder = 0, c = 'k', lw = 2, ls = '--')
+
+    texts = []
+    for i in range(len(df)):
+        if df.iloc[i].nlog10 >= pv_thr and (df.iloc[i].log2FoldChange >= high_fc_thr):
+            texts.append(plt.text(x = df.iloc[i].log2FoldChange, y = df.iloc[i].nlog10, s = df.iloc[i].symbol,
+                                 fontsize = fontsize, weight = 'bold', family = 'sans-serif'))
+        if df.iloc[i].nlog10 >= pv_thr and ( df.iloc[i].log2FoldChange <= -low_fc_thr):
+            texts.append(plt.text(x = df.iloc[i].log2FoldChange, y = df.iloc[i].nlog10, s = df.iloc[i].symbol,
+                                 fontsize = fontsize + 2, weight = 'bold', family = 'sans-serif'))
+    adjust_text(texts)
+
+    custom_lines = [Line2D([0], [0], marker='o', color='w', markerfacecolor=color2, markersize=fontsize),
+                   Line2D([0], [0], marker='o', color='w', markerfacecolor=color1, markersize=fontsize)]
+
+    plt.legend(custom_lines, ['Higher expressions in ' + feature2, 'Higher expressions in ' + feature1], loc = 1,
+               bbox_to_anchor = (1,1.1), frameon = False, prop = {'weight': 'normal', 'size': fontsize})
+
+    for axis in ['bottom', 'left']:
+        ax.spines[axis].set_linewidth(2)
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    ax.tick_params(width = 2)
+    ax.set_ylim(bottom=0)
+    plt.title("Expression Score \n " + feature1 + " - " + feature2, fontsize = fontsize + 4)
+    plt.xticks(size = fontsize, weight = 'bold')
+    plt.yticks(size = fontsize, weight = 'bold')
+
+    plt.xlabel("$log_{2}$ (Fold Change)", size = fontsize + 2)
+    plt.ylabel("-$log_{10}$ (P-value)", size = fontsize + 2)
+
+    if output_path is not None:
+        plt.savefig(output_path + "/volcano_" + str(feature1) + "-" + str(feature2) + "_FC.pdf",
+                    dpi = 100, bbox_inches = 'tight', facecolor = 'white')
+    plt.show()
+
+def compute_pseudobulk_DE_R(
+        cluster_counts: pd.DataFrame = None,
+        cluster_metadata: pd.DataFrame = None,
+        group1: str = None,
+        group2: str = None,
+        cluster_col: str = None):
+    
+    """
+    Parameters
+    ----------
+    aggr_counts : pd.DataFrame, optional
+        DESCRIPTION. The default is None.
+    metadata : pd.DataFrame, optional
+        DESCRIPTION. The default is None.
+    cell_type : str, optional
+        DESCRIPTION. The default is None.
+    group1 : str, optional
+        DESCRIPTION. The default is None.
+    group2 : str, optional
+        DESCRIPTION. The default is None.
+    n_cpus : int, optional
+        DESCRIPTION. The default is 8.
+
+    Returns
+    -------
+    my_stat_res : TYPE
+        DESCRIPTION.
+
+    """
+
+    # consider DE between two group of interest
+    my_cluster_metadata = cluster_metadata[ (cluster_metadata[cluster_col] == group1 ) | (cluster_metadata[cluster_col] == group2)]
+    my_cluster_counts = cluster_counts.loc[my_cluster_metadata.index]
+
+    R = robjects.r
+    R('library(SingleCellExperiment)')
+    R('library(DESeq2)')
+    R('library(apeglm)')
+    R('library(tidyverse, verbose = FALSE)')
+    R.assign('cluster_counts', my_cluster_counts)
+    R.assign('cluster_metadata', my_cluster_metadata)
+
+    try:
+
+        R('dds <- DESeqDataSetFromMatrix(round(t(cluster_counts)), colData = cluster_metadata, design = ~ stage)')
+        R('rld <- rlog(dds, blind = TRUE)')
+        R('dds <- DESeq(dds)')
+        R(' \
+        mylist <- list(resultsNames(dds)); \
+        for(coef in resultsNames(dds)){ \
+            if(coef != "Intercept"){ \
+                print(coef); \
+                res <- results(dds, name = coef, alpha = 0.05); \
+                res <- lfcShrink(dds, coef = coef, res = res, type = "apeglm"); \
+                res_tbl <- res %>% data.frame() %>% rownames_to_column(var = "gene") %>% as_tibble() %>% arrange(padj); \
+                mylist[[coef]] <- res_tbl; \
+            } \
+        } \
+        ')
+        
+        res = R('''mylist''')
+        return res
+    except rpy2.rinterface_lib.embedded.RRuntimeError:
+        return None
+   
+def compute_pseudobulk_PCA_R(
+        cluster_counts: pd.DataFrame = None,
+        cluster_metadata: pd.DataFrame = None):
+    
+    """
+    Parameters
+    ----------
+    aggr_counts : pd.DataFrame, optional
+        DESCRIPTION. The default is None.
+    metadata : pd.DataFrame, optional
+        DESCRIPTION. The default is None.
+    cell_type : str, optional
+        DESCRIPTION. The default is None.
+    group1 : str, optional
+        DESCRIPTION. The default is None.
+    group2 : str, optional
+        DESCRIPTION. The default is None.
+    n_cpus : int, optional
+        DESCRIPTION. The default is 8.
+
+    Returns
+    -------
+    my_stat_res : TYPE
+        DESCRIPTION.
+
+    """
+
+    
+    # consider DE between two group of interest
+
+    R = robjects.r
+    R('library(SingleCellExperiment)')
+    R('library(DESeq2)')
+    R('library(apeglm)')
+    R('library(tidyverse, verbose = FALSE)')
+    R.assign('cluster_counts', cluster_counts)
+    R.assign('cluster_metadata', cluster_metadata)
+
+    try:
+
+        R('dds <- DESeqDataSetFromMatrix(round(t(cluster_counts)), colData = cluster_metadata, design = ~ stage)')
+        R('rld <- rlog(dds, blind = TRUE)')
+        R('dds <- DESeq(dds)')
+        rld = R('''as.data.frame(assay(rld))''')        
+        return rld
+    except rpy2.rinterface_lib.embedded.RRuntimeError:
+        return None
+    
+def get_pseudobulk_DE_R(adata: ad.AnnData,
                       proportion_df: pd.DataFrame,
                       cell_type: str,
                       fc_thr: list,
