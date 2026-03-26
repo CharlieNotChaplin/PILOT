@@ -639,7 +639,7 @@ def return_real_labels(df, category = 'status', sample_col=1):
         true_labels.append(a[0])
     
     
-    return true_labels;
+    return true_labels
         
 
 
