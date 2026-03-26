@@ -1,45 +1,70 @@
-import pandas as pd
-import numpy as np
-import anndata
-import scanpy as sc
 import os
-import seaborn as sns
-import scipy
-from matplotlib import pyplot as plt
-from scipy.stats import ttest_ind
-from statsmodels.stats.multitest import multipletests
-from adjustText import adjust_text
-from matplotlib.lines import Line2D
-from gprofiler import GProfiler
-import pydiffmap
-from sklearn import metrics
-from pydiffmap import diffusion_map
-from sklearn.neighbors import NearestCentroid
-from sklearn.metrics.cluster import rand_score
-from scipy.spatial import distance
-from sknetwork.clustering import Louvain
-from sklearn.preprocessing import label_binarize
-import time
-import sys 
-from genericpath import isfile
-from matplotlib.image import imread
 import warnings
-import ot
-from logging import info, warn
-from cycler import cycler
-warnings.filterwarnings('ignore')
-import elpigraph 
+from genericpath import isfile
+from pathlib import Path
+
+# Data Science
+import numpy as np
+import pandas as pd
 from scipy.stats import ttest_ind
+from sklearn import metrics
+from sklearn.preprocessing import label_binarize
+from statsmodels.stats.multitest import multipletests
+
+# Single-Cell/Bio
+import anndata
+import elpigraph 
+import scanpy as sc
+from gprofiler import GProfiler
+from pydiffmap import diffusion_map
+
+# Plotting/UI
+import seaborn as sns
+from adjustText import adjust_text
+from cycler import cycler
+from matplotlib import pyplot as plt
 from matplotlib.font_manager import FontProperties
+from matplotlib.image import imread
+from matplotlib.lines import Line2D
+
+# Graphs/Network
+from sknetwork.clustering import Louvain
+
 from ..tools.Gene_cluster_specific_functions import *
 
+# Configurations
+warnings.filterwarnings('ignore')
 
 
-def trajectory(adata,n_evecs = 2, epsilon =1, alpha = 0.5,knn= 64, sample_col=1, clusters = 'status',label_act = False,colors=['#377eb8','#ff7f00','#e41a1c'],location_labels='center', figsize=(12,12),font_size=24,axes_line_width=1,axes_color='black',facecolor='white',point_size=100,cmap='viridis',fontsize_legend=24,alpha_trans=1,plot_titel = "Trajectory of the disease progression"):
-    
-    
-    
-    
+
+# CHANGED
+# replaced os.path with pathlib
+# updated functions: volcano_plot, map_colors
+# sorted and removed unnecessary imports
+# A lot of function header formatting
+
+
+# done
+def trajectory(adata,
+               n_evecs = 2, 
+               epsilon =1, 
+               alpha = 0.5,
+               knn= 64, 
+               sample_col=1, 
+               clusters = 'status',
+               label_act = False,
+               colors=['#377eb8','#ff7f00','#e41a1c'],
+               location_labels='center', 
+               figsize=(12,12),
+               font_size=24,
+               axes_line_width=1,
+               axes_color='black',
+               facecolor='white',
+               point_size=100,
+               cmap='viridis',
+               fontsize_legend=24,
+               alpha_trans=1,
+               plot_titel = "Trajectory of the disease progression"):
     """
     Find trajectories using Diffusion Maps and visualize the trajectory plot.
 
@@ -95,18 +120,17 @@ def trajectory(adata,n_evecs = 2, epsilon =1, alpha = 0.5,knn= 64, sample_col=1,
     EMD=adata.uns['EMD']/adata.uns['EMD'].max()
     df=adata.uns['annot']
     
-    path='Results_PILOT/plots'
-    
-    if not os.path.exists(path):
-        os.makedirs(path)
-        
+    plot_path=Path('Results_PILOT/plots')    
+    plot_path.mkdir(parents=True, exist_ok=True)
         
     custom_cycler = (cycler(color=colors))
     
-    plot_titel = plot_titel
+    plot_title = plot_titel
 
-   
-    mydmap = diffusion_map.DiffusionMap.from_sklearn(n_evecs = n_evecs, epsilon =epsilon, alpha = alpha, k=knn)
+    mydmap = diffusion_map.DiffusionMap.from_sklearn(n_evecs = n_evecs, 
+                                                     epsilon =epsilon, 
+                                                     alpha = alpha, 
+                                                     k=knn)
     embedding = mydmap.fit_transform(EMD)
         
     plt.rcParams.update({'font.size': font_size})
@@ -134,8 +158,8 @@ def trajectory(adata,n_evecs = 2, epsilon =1, alpha = 0.5,knn= 64, sample_col=1,
                 k=k+1
 
     ax.legend(loc=location_labels, fontsize=fontsize_legend)
-    plt.title(plot_titel)
-    plt.savefig(path+"/"+plot_titel+'.pdf')
+    plt.title(plot_title)
+    plt.savefig(plot_path / f"{plot_title}.pdf")
     plt.show()         
     plt.close(fig)
     
@@ -143,7 +167,7 @@ def trajectory(adata,n_evecs = 2, epsilon =1, alpha = 0.5,knn= 64, sample_col=1,
     adata.uns['embedding']=embedding
     
 
-    
+# done    
 def heatmaps(adata,figsize=(12,12),col_cluster=True,row_cluster=True,cmap='Blues_r',font_scale=2):
     
     """
@@ -173,16 +197,16 @@ def heatmaps(adata,figsize=(12,12),col_cluster=True,row_cluster=True,cmap='Blues
 
     annot=adata.uns['annot']
     cost=adata.uns['cost']
-    path='Results_PILOT/plots'
+    plot_path=Path('Results_PILOT/plots')
     
-    if not os.path.exists(path):
-        os.makedirs(path)
+    plot_path.mkdir(parents=True, exist_ok=True)
+
         
     fig = plt.figure()
    # sns.set(font_scale=font_scale)
     sns.clustermap(cost[annot.cell_type.unique()],cmap=cmap,figsize=figsize,col_cluster=col_cluster,row_cluster=row_cluster);
     plt.title('Cost Matrix',loc='center')
-    plt.savefig(path+'/Cost_matrix.pdf') 
+    plt.savefig(plot_path / 'Cost_matrix.pdf') 
     plt.close(fig)
     
     fig = plt.figure()
@@ -190,11 +214,11 @@ def heatmaps(adata,figsize=(12,12),col_cluster=True,row_cluster=True,cmap='Blues
     emd=adata.uns['EMD_df']
     sns.clustermap(emd,cmap=cmap,figsize=figsize,col_cluster=col_cluster,row_cluster=row_cluster)
     plt.title('Wasserstein distance',loc='center')
-    plt.savefig(path+'/Wasserstein distance.pdf') 
+    plt.savefig(plot_path / 'Wasserstein distance.pdf') 
     plt.close(fig)
  
 
- 
+# done 
 def heatmaps_df(df, figsize=(12, 12), col_cluster=True, row_cluster=True, cmap='Blues_r'):
     """
     Plot heatmaps of cost matrix and Wasserstein distances.
@@ -218,14 +242,18 @@ def heatmaps_df(df, figsize=(12, 12), col_cluster=True, row_cluster=True, cmap='
         Plots and saves heatmaps based on the input DataFrame.
     """
 
-    path='Results_PILOT/plots'
-    sns.clustermap(df,
-                                row_cluster=row_cluster,col_cluster=col_cluster,annot=False,cmap=cmap,figsize=figsize,xticklabels=True);
-    plt.savefig(path+"/"+'Proportions_of_cell_types_for_samples_over_trajectory.pdf')
+    plot_path=Path('Results_PILOT/plots')
+    sns.clustermap(df, 
+                   row_cluster=row_cluster,
+                   col_cluster=col_cluster,
+                   annot=False,
+                   cmap=cmap,
+                   figsize=figsize,
+                   xticklabels=True);
+    plt.savefig(plot_path / 'Proportions_of_cell_types_for_samples_over_trajectory.pdf')
     
-      
-    
-
+       
+# done
 def fit_pricipla_graph(adata,NumNodes=20,source_node=0,show_text=True,Do_PCA=False,figsize=(12,12),X_color='r', Node_color='k', DimToPlot=[0, 1],facecolor='white',title='Principal graph'):
     
     """
@@ -262,11 +290,9 @@ def fit_pricipla_graph(adata,NumNodes=20,source_node=0,show_text=True,Do_PCA=Fal
         Fits an Elastic Principal Graph, plots it, and extracts pseudotime information.
     """
     
-    path='Results_PILOT/plots'
-    
-    if not os.path.exists(path):
-        os.makedirs(path)
-        
+    plot_path='Results_PILOT/plots'    
+    plot_path.mkdir(parents=True, exist_ok=True)
+
     emb=adata.uns['embedding']
     pg_curve = elpigraph.computeElasticPrincipalTree(emb,NumNodes=NumNodes)[0]
     fig = plt.figure(figsize=figsize)
@@ -274,7 +300,7 @@ def fit_pricipla_graph(adata,NumNodes=20,source_node=0,show_text=True,Do_PCA=Fal
     ax.set(facecolor = facecolor)
     elpigraph.plot.PlotPG(emb,pg_curve,Do_PCA=Do_PCA,show_text=show_text,DimToPlot=DimToPlot,Node_color=Node_color,X_color=X_color)
     plt.title(title)
-    plt.savefig(path+"/"+'Principal graph'+'.pdf')
+    plt.savefig(plot_path / 'Principal graph.pdf')
     plt.show()         
     plt.close(fig)
     elpigraph.utils.getPseudotime(emb,pg_curve,source=source_node,target=None)
@@ -282,29 +308,43 @@ def fit_pricipla_graph(adata,NumNodes=20,source_node=0,show_text=True,Do_PCA=Fal
     adata.uns['pseudotime']=pseudotime
     
 
-
- 
+# done 
 def clustering_emd(adata,res=0.3,metric='cosine',groupby_col='Leiden',swap_axes=False,cmap="Blues_r",dendrogram=True,show_gene_labels=True,var_group_rotation=45,figsize=[12,12],save=False,sorter_leiden=None):
     
     """
     Perform clustering and visualization of EMD (Earth Mover's Distance) data in AnnData object.
 
-    Parameters:
-    adata (AnnData): Input AnnData object containing EMD data.
-    res (float): Resolution parameter for Leiden clustering. Default is 0.3.
-    metric (str): Distance metric for clustering. Default is 'cosine'.
-    groupby_col (str): Grouping variable for plotting. 'Leiden' groups by predicted clusters, 'status' groups by real labels. Default is 'Leiden'.
-    swap_axes (bool): Swap the axes in the heatmap. Default is False.
-    cmap (str): Colormap for the heatmap. Default is "Blues_r".
-    dendrogram (bool): Display dendrograms in the heatmap. Default is True.
-    show_gene_labels (bool): Show gene labels in the heatmap. Default is True.
-    var_group_rotation (int): Rotation angle for gene labels. Default is 45 degrees.
-    figsize (list): Size of the heatmap figure. Default is [12, 12].
-    save (bool): Save the heatmap figure. Default is False.
-    sorter_leiden (list or None): Custom order for Leiden clusters. If not provided, the default order is used.
+    Parameters
+    ----------
+    adata : AnnData
+        Input AnnData object containing EMD data.
+    res : float, optional
+        Resolution parameter for Leiden clustering. Default is 0.3.
+    metric : str, optional
+        Distance metric for clustering. Default is 'cosine'.
+    groupby_col : str, optional
+        Grouping variable for plotting. 'Leiden' groups by predicted clusters, 'status' groups by real labels. Default is 'Leiden'.
+    swap_axes : bool, optional
+        Swap the axes in the heatmap. Default is False.
+    cmap : str, optional
+        Colormap for the heatmap. Default is "Blues_r".
+    dendrogram : bool, optional
+        Display dendrograms in the heatmap. Default is True.
+    show_gene_labels : bool, optional
+        Show gene labels in the heatmap. Default is True.
+    var_group_rotation : int, optional
+        Rotation angle for gene labels. Default is 45 degrees.
+    figsize : list, optional
+        Size of the heatmap figure. Default is [12, 12].
+    save : bool, optional
+        Save the heatmap figure. Default is False.
+    sorter_leiden : list or None, optional
+        Custom order for Leiden clusters. If not provided, the default order is used.
 
-    Returns:
-    proportion_df (DataFrame): DataFrame containing proportions of sub-clusters in each sample.
+    Returns
+    -------
+    proportion_df : pd.DataFrame
+        DataFrame containing proportions of sub-clusters in each sample.
     """
     
     EMD=adata.uns['EMD']
@@ -354,8 +394,7 @@ def clustering_emd(adata,res=0.3,metric='cosine',groupby_col='Leiden',swap_axes=
     return proportion_df
     
     
-
-
+# done
 def Sil_computing(EMD, real_labels, metric='cosine'):
     """
     Compute the Silhouette score based on Wasserstein distances.
@@ -379,6 +418,7 @@ def Sil_computing(EMD, real_labels, metric='cosine'):
     return Silhouette
 
 
+# done
 def select_best_sil(adata,resolutions=[],marker='o',figsize=(10,10),facecolor="white",metric='cosine',path=None,start=0.2,step=0.1,end=2):
     """
     Parameters
@@ -408,11 +448,10 @@ def select_best_sil(adata,resolutions=[],marker='o',figsize=(10,10),facecolor="w
     best_res=start
     best_sil=0
     if path==None:
-        if not os.path.exists('Results_PILOT/plots'):
-            os.makedirs('Results_PILOT/plots')
-        path_to_results='Results_PILOT/plots'
+        result_path=Path('Results_PILOT/plots')
+        result_path.mkdir(parents=True, exist_ok=True)
     else:
-        path_to_results=path
+        result_path=Path(path)
     sil_scores = []
     number_of_clusters=[]
     EMD=adata.uns['EMD']
@@ -442,7 +481,7 @@ def select_best_sil(adata,resolutions=[],marker='o',figsize=(10,10),facecolor="w
     plt.xlabel('Resolution')
     plt.ylabel('Silhouette Score')
     plt.title('Silhouette Score vs. Resolution')
-    plt.savefig(path_to_results+'/silhouette_score_vs_resolution.pdf')
+    plt.savefig(result_path / 'Silhouette_score_vs_resolution.pdf')
     plt.show()
     
     
@@ -452,9 +491,11 @@ def select_best_sil(adata,resolutions=[],marker='o',figsize=(10,10),facecolor="w
     plt.xlabel('Resolution')
     plt.ylabel('Number of Clusters')
     plt.title('Number of Clusters vs. Resolution')
-    plt.savefig(path_to_results+'/number_of_clusters_vs_resolution.pdf')
+    plt.savefig(result_path / 'Number_of_clusters_vs_resolution.pdf')
     plt.show()
     
+
+# done
 def cell_type_diff_two_sub_patient_groups(proportions: pd.DataFrame = None,
                                           cell_types: list = None,
                                           labels:str = 'Predicted_Labels',
@@ -495,11 +536,10 @@ def cell_type_diff_two_sub_patient_groups(proportions: pd.DataFrame = None,
 
     """
     if file_path==None:
-        if not os.path.exists('Results_PILOT/plots'):
-            os.makedirs('Results_PILOT/plots')
-        file_path='Results_PILOT/plots'
+        plot_path=Path('Results_PILOT/plots')
+        plot_path.mkdir(parents=True, exist_ok=True)
     else:
-        file_path=file_path
+        plot_path=file_path
     
         
      
@@ -533,10 +573,9 @@ def cell_type_diff_two_sub_patient_groups(proportions: pd.DataFrame = None,
     ## as positive score shows cell types statistically significant on the first group
     ## and negative scrore shows cell types statistically significant on the second group
     
-    
-    if not os.path.exists('Results_PILOT/Diff_Expressions_Results'):
-                os.makedirs('Results_PILOT/Diff_Expressions_Results')
-    stats_bar_group12.to_csv('Results_PILOT/Diff_Expressions_Results' + "/Cell_type_diff_" + group1 + "_vs_" + group2 +".csv",
+    diff_result_path = Path('Results_PILOT/Diff_Expressions_Results')
+    diff_result_path.mkdir(parents=True, exist_ok=True)
+    stats_bar_group12.to_csv(diff_result_path / "Cell_type_diff_" + group1 + "_vs_" + group2 +".csv",
                              header = True, index = None)
     
     # filter data based on a p-value threshold
@@ -549,16 +588,19 @@ def cell_type_diff_two_sub_patient_groups(proportions: pd.DataFrame = None,
                      rotation = None, tick_bottom = True, tick_left = False,
                      title = "Cell type rank " + group1 + " vs " + group2,fontsize=fontsize)
     fig.tight_layout()
-    plt.savefig(file_path + "/Cell_type_diff_" + group1 + "_vs_" + group2 +".pdf",
+    plt.savefig(plot_path + "/Cell_type_diff_" + group1 + "_vs_" + group2 +".pdf",
                           facecolor = 'white')
     
     
-    
+# done    
 def plot_cell_types_distributions(proportions: pd.DataFrame = None,
                                   cell_types: list = None,
                                   labels:str = 'Predicted_Labels',
                                   file_path: str = None,
-                                  figsize: tuple = (15, 7),label_order=None,label_colors=None,fontsize=24,rotation = 45):
+                                  figsize: tuple = (15, 7),
+                                  label_order=None,
+                                  label_colors=None,
+                                  fontsize=24,rotation = 45):
     """
     
 
@@ -586,11 +628,10 @@ def plot_cell_types_distributions(proportions: pd.DataFrame = None,
     """
     
     if file_path==None:
-        if not os.path.exists('Results_PILOT/plots'):
-            os.makedirs('Results_PILOT/plots')
-        file_path='Results_PILOT/plots'
+        plot_path=Path('Results_PILOT/plots')
+        plot_path.mkdir(parents=True, exist_ok=True)
     else:
-        file_path=file_path
+        plot_path=file_path
     
     col_names = list(cell_types)
     col_names.append(labels)
@@ -610,13 +651,12 @@ def plot_cell_types_distributions(proportions: pd.DataFrame = None,
     plt.xticks(fontsize = fontsize, rotation = rotation, ha = 'right', rotation_mode = 'anchor')
     plt.legend(fontsize = fontsize)
     fig.tight_layout()
-    plt.savefig(file_path + "/Cell_types_distributions.pdf",
+    plt.savefig(plot_path / "Cell_types_distributions.pdf",
                           facecolor = 'white')
     plt.show()
  
 
-
-    
+# done    
 def gene_annotation_cell_type_subgroup(cell_type: str = None,
                                    group: str = None,
                                    source: str = None,
@@ -668,11 +708,9 @@ def gene_annotation_cell_type_subgroup(cell_type: str = None,
         Saves the scatterplot of enriched GO terms as a PDF file.
     """
 
-    path_to_results='Results_PILOT'
-    group_genes = pd.read_csv(path_to_results +'/Diff_Expressions_Results/'+cell_type+"/significant_genes_"+cell_type+"_"+group+".csv",
+    path_to_results=Path('Results_PILOT')
+    group_genes = pd.read_csv(path_to_results / 'Diff_Expressions_Results' / cell_type / f"Significant_genes_{cell_type}_{group}.csv",
                                index_col=0)
-    
-    
     
     gp = GProfiler(return_dataframe=True)
     if list(group_genes['0'].values):
@@ -710,15 +748,20 @@ def gene_annotation_cell_type_subgroup(cell_type: str = None,
     plt.ylabel("GO Terms", size = font_size)
     plt.xlabel("-$log_{10}$ (P-value)", size = font_size)
     
-    if not os.path.exists(path_to_results+'/Diff_Expressions_Results/'+cell_type+'/GO_analysis/'):
-            os.makedirs(path_to_results+'/Diff_Expressions_Results/'+cell_type+'/GO_analysis/')
-    path_to_results=path_to_results+'/Diff_Expressions_Results/'+cell_type+'/GO_analysis/'
-    plt.savefig(path_to_results+ group + ".pdf", bbox_inches = bbox_inches, facecolor=facecolor, transparent=transparent)
-    gprofiler_results.to_csv(path_to_results+group+'_'+cell_type+"_all_gprofiler_results.csv")
+    go_path = Path(path_to_results / 'Diff_Expressions_Results' / cell_type / 'GO_analysis')
+    go_path.mkdir(parents=True, exist_ok=True)
+    plt.savefig(go_path / f"{group}.pdf", bbox_inches = bbox_inches, facecolor=facecolor, transparent=transparent)
+    gprofiler_results.to_csv(go_path / f"{group}_{cell_type}_all_gprofiler_results.csv")
 
 
 
-def exploring_specific_genes(cluster_name='cell_type',font_size=24,gene_list=[],fig_size=(64, 56),p_value=0.01,create_new_plot_folder=True,fc_ther=0.5):
+def exploring_specific_genes(cluster_name='cell_type',
+                             font_size=24,
+                             gene_list=[],
+                             fig_size=(64, 56),
+                             p_value=0.01,
+                             create_new_plot_folder=True,
+                             fc_ther=0.5):
     """
     Explore specific genes within a cluster to analyze their patterns in comparison to other cell types.
 
@@ -744,14 +787,13 @@ def exploring_specific_genes(cluster_name='cell_type',font_size=24,gene_list=[],
     Returns:
         Show the genes for the interested cell types
     """
-    path='Results_PILOT/'
-    file_name = "/Whole_expressions.csv"
-    cluster_names = [os.path.splitext(f)[0] for f in listdir(path + '/cells/') \
-                         if isfile(join(path + '/cells/', f))]
+    result_path=Path('Results_PILOT')
+    file_name = "Whole_expressions.csv"
+    cluster_names = [f.stem for f in (result_path / 'cells').iterdir() if f.is_file()]
     
-    all_stats_extend = pd.read_csv(path + "/gene_clusters_stats_extend.csv", sep = ",")
+    all_stats_extend = pd.read_csv(result_path / "gene_clusters_stats_extend.csv", sep = ",")
     
-    with open(path + '/genes_dictionary.pkl', 'rb') as handle:
+    with open(result_path / 'genes_dictionary.pkl', 'rb') as handle:
         gene_dict = pickle.load(handle)
     
     pline = np.linspace(1, 20, 20)
@@ -759,15 +801,14 @@ def exploring_specific_genes(cluster_name='cell_type',font_size=24,gene_list=[],
     filtered_all_stats_extend=filtered_all_stats_extend[filtered_all_stats_extend['cluster'].isin([cluster_name])]
     
  
-    plot_stats_by_pattern(cluster_names, filtered_all_stats_extend, gene_dict, pline, path, file_name,font_size=font_size,p_value=p_value,create_new_plot_folder=create_new_plot_folder,fc_ther=fc_ther)
+    plot_stats_by_pattern(cluster_names, filtered_all_stats_extend, gene_dict, pline, result_path, file_name,font_size=font_size,p_value=p_value,create_new_plot_folder=create_new_plot_folder,fc_ther=fc_ther)
     
     # Load the PNG image file
     if create_new_plot_folder:
-        image_path =path+'/plot_genes_for_'+str(cluster_name)+'/'+str(cluster_name) + ".png"  # Replace with the actual path to your PNG image
+        image_path = result_path+'/plot_genes_for_'+str(cluster_name)+'/'+str(cluster_name) + ".png"  # Replace with the actual path to your PNG image
         image = imread(image_path)
-    else:
-        
-        image_path =path+'plots_gene_cluster_differentiation/'+cluster_name+'.png'  # Replace with the actual path to your PNG image
+    else:        
+        image_path =result_path+'plots_gene_cluster_differentiation/'+cluster_name+'.png'  # Replace with the actual path to your PNG image
         image = imread(image_path)
     
     # Set the size of the figure
@@ -779,9 +820,20 @@ def exploring_specific_genes(cluster_name='cell_type',font_size=24,gene_list=[],
     plt.show()
     
    
-    
-    
-def go_enrichment(df,num_gos=20,source=None,cell_type='cell_type',fontsize=32,s=200, figsize = (15,12),color = 'tab:blue',dpi=100,bbox_inches = 'tight', facecolor='white', transparent=False,organism='hsapiens'):
+# done    
+def go_enrichment(df,
+                  num_gos=20,
+                  source=None,
+                  cell_type='cell_type',
+                  fontsize=32,
+                  s=200, 
+                  figsize = (15,12),
+                  color = 'tab:blue',
+                  dpi=100,
+                  bbox_inches = 'tight', 
+                  facecolor='white', 
+                  transparent=False,
+                  organism='hsapiens'):
     
     """
     Perform Gene Ontology (GO) enrichment analysis and create a scatterplot of enriched terms.
@@ -821,15 +873,15 @@ def go_enrichment(df,num_gos=20,source=None,cell_type='cell_type',fontsize=32,s=
         Saves the scatterplot of enriched GO terms as a PDF file.
     """
 
-    path='Results_PILOT/'
+    result_path=Path('Results_PILOT/')
     df_sorted =df
     gp = GProfiler(return_dataframe=True)
     gprofiler_results = gp.profile(organism = organism,
                 query = list(df_sorted['gene'].values))
     
-    if not os.path.exists(path+'GO/'+cell_type+'/'):
-        os.makedirs(path+'GO/'+cell_type+'/')
-    gprofiler_results.to_csv(path+'GO/'+cell_type+'/'+cell_type+"_all_gprofiler_results.csv")
+    go_path = result_path / 'GO' / cell_type
+    go_path.mkdir(parents=True, exist_ok=True)
+    gprofiler_results.to_csv(result_path+'GO/'+cell_type+'/'+cell_type+"_all_gprofiler_results.csv")
     if(gprofiler_results.shape[0] < num_gos):
         num_gos = gprofiler_results.shape[0]
 
@@ -856,10 +908,12 @@ def go_enrichment(df,num_gos=20,source=None,cell_type='cell_type',fontsize=32,s=
     #if not os.path.exists(path+'GO/'):
        # os.makedirs(path+'GO/')
     #plt.savefig(path+'GO/'+cell_type+".pdf", bbox_inches = 'tight', facecolor='white', transparent=False)
-    if not os.path.exists(path+'GO/'+cell_type+'/'):
-        os.makedirs(path+'GO/'+cell_type+'/')
-    plt.savefig(path+'GO/'+cell_type+'/'+cell_type+".pdf", bbox_inches = bbox_inches, facecolor=facecolor, transparent=transparent)
+    if not os.path.exists(result_path+'GO/'+cell_type+'/'):
+        os.makedirs(result_path+'GO/'+cell_type+'/')
+    plt.savefig(result_path+'GO/'+cell_type+'/'+cell_type+".pdf", bbox_inches = bbox_inches, facecolor=facecolor, transparent=transparent)
     
+
+# done
 def plt_gene_cluster_differentiation(cellnames=['healthy_CM','Myofib'],font_size=22,p_value=0.01,fc_ther=0.5):
     """
     Generate and save plots showcasing gene expression patterns for selected cell clusters.
@@ -880,26 +934,33 @@ def plt_gene_cluster_differentiation(cellnames=['healthy_CM','Myofib'],font_size
         Generates and saves scatterplots of gene expression patterns for selected clusters.
     """
     
-    file_name = "/Whole_expressions.csv"
-    path='Results_PILOT/'
-    all_stats_extend=pd.read_csv(path+'gene_clusters_stats_extend.csv')
-    with open(path + '/genes_dictionary.pkl', 'rb') as handle:
+    file_name = "Whole_expressions.csv"
+    result_path=Path('Results_PILOT')
+    all_stats_extend=pd.read_csv(result_path / 'gene_clusters_stats_extend.csv')
+    with open(result_path / 'genes_dictionary.pkl', 'rb') as handle:
         gene_dict = pickle.load(handle)
     
     pline = np.linspace(1, 20, 20)
     plot_stats_by_pattern(cluster_names=cellnames, all_stats_extend=all_stats_extend, gene_dict=gene_dict, 
-                          pline=pline, path_to_results=path, file_name=file_name,font_size=font_size,
+                          pline=pline, path_to_results=result_path, file_name=file_name,font_size=font_size,
                           p_value=p_value,fc_ther=fc_ther)
 
+
+# done
 def qq_plot_gene(target, data, sorted_best, gene_name):
     """
     Generate a QQ plot for a specific gene's performance.
 
-    Parameters:
-        target (pd.DataFrame): The target DataFrame containing gene labels.
-        data (pd.DataFrame): The data DataFrame containing gene data.
-        sorted_best (dict): A dictionary containing sorted gene results.
-        gene_name (str): The name of the gene to create the QQ plot for.
+    Parameters
+    ----------
+        target : pd.DataFrame
+            The target DataFrame containing gene labels.
+        data : pd.DataFrame
+            The data DataFrame containing gene data.
+        sorted_best : dict
+            A dictionary containing sorted gene results.
+        gene_name : str
+            The name of the gene to create the QQ plot for.
 
     Returns:
         None: Displays the QQ plot for the specified gene's performance.
@@ -924,27 +985,60 @@ def qq_plot_gene(target, data, sorted_best, gene_name):
     stats.probplot( (best_tf - predictions), dist="norm", plot=pylab)
     pylab.show()
 
-def plot_best_matches_cell_types(target, data,df,sorted_best, scale_name, min_target=0, max_target=35,num=11,width=25,height=25,xlim=4,point_size=100,color_back=None,fontsize=28,alpha=1,cmap='viridis'):
+
+# done
+def plot_best_matches_cell_types(target, 
+                                 data,
+                                 df,
+                                 sorted_best, 
+                                 scale_name, 
+                                 min_target=0, 
+                                 max_target=35,
+                                 num=11,
+                                 width=25,
+                                 height=25,
+                                 xlim=4,
+                                 point_size=100,
+                                 color_back=None,
+                                 fontsize=28,
+                                 alpha=1,
+                                 cmap='viridis'):
     """
     Plot the best-fitted models for cell types.
 
     Parameters:
-        target (pd.DataFrame): The target data for gene activity.
-        data (pd.DataFrame): The data containing cell type labels.
-        df (pd.DataFrame): The data frame containing sample information.
-        sorted_best (dict): A dictionary containing the best-fitted model results for each factor, sorted by R-squared or modified R-squared.
-        scale_name (str): The name of the scale.
-        min_target (int): The minimum target value.
-        max_target (int): The maximum target value.
-        num (int): Number of models to plot.
-        width (int): Width of the figure.
-        height (int): Height of the figure.
-        xlim (int): X-axis limit.
-        point_size (int): Size of data points.
-        color_back (str): Background color of the plot.
-        fontsize (int): Font size for the titles and labels.
-        alpha (float): Alpha value for data points.
-        cmap (str): Colormap for data points.
+        target : pd.DataFrame
+            The target data for gene activity.
+        data : pd.DataFrame
+            The data containing cell type labels.
+        df : pd.DataFrame
+            The data frame containing sample information.
+        sorted_best : dict
+            A dictionary containing the best-fitted model results for each factor, sorted by R-squared or modified R-squared.
+        scale_name : str
+            The name of the scale.
+        min_target : int, optional
+            The minimum target value.
+        max_target : int, optional 
+            The maximum target value.
+        num : int, optional 
+            Number of models to plot.
+        width : int, optional
+            Width of the figure.
+        height : int, optional
+            Height of the figure.
+        xlim : int, optional
+            X-axis limit.
+        point_size : int, optional
+            Size of data points.
+        color_back : str, optional
+            Background color of the plot.
+        fontsize : int, optional
+            Font size for the titles and labels.
+        alpha : float, optional
+            Alpha value for data points.
+        cmap : str, optional
+            Colormap for data points.
 
     Returns:
         None: This function generates the plot but does not return any value.
@@ -1027,8 +1121,7 @@ def plot_best_matches_cell_types(target, data,df,sorted_best, scale_name, min_ta
         j += 1
 
 
-
-  
+ 
 def plot_best_matches(target, data,df, sorted_best, scale_name, plot_color='tab:orange',num=16,width=25,height=25,x_lim=4,fontsize=24,alpha=0.5,cmap='viridis',color_back=None):
     """
     Plot the best-fitted models for different patterns.
@@ -1182,7 +1275,6 @@ def plot_best_matches(target, data,df, sorted_best, scale_name, plot_color='tab:
 
     
   
-
 def plot_two_genes(adata, sorted_best_WT, sorted_best_KO, gene_name, scale_name, plot_color1 = 'tab:blue', plot_color2 = 'tab:red'):
     
     """
@@ -1245,6 +1337,7 @@ def plot_two_genes(adata, sorted_best_WT, sorted_best_KO, gene_name, scale_name,
     ax.set_ylabel(scale_name)
     
 
+
 def plot_one_gene(target, data, sorted_best, gene_name, scale_name, plot_color):
     
     """
@@ -1294,6 +1387,8 @@ def plot_one_gene(target, data, sorted_best, gene_name, scale_name, plot_color):
                   color='black',
                   size=14)
     ax.set_xlabel(pattern)
+
+
 
 def plot_gene(target, data, sorted_best, gene_name, scale_name, plot_color):
     """
@@ -1381,6 +1476,7 @@ def plot_gene(target, data, sorted_best, gene_name, scale_name, plot_color):
                           y = curve[10])
     p.draw()
     
+
 
 def plot_gene_specific(target, data, sorted_best, gene_name, scale_name, plot_color):
     
@@ -1504,6 +1600,7 @@ def plot_gene_specific(target, data, sorted_best, gene_name, scale_name, plot_co
     p.draw()
    
   
+
 def plot_gene_distribtion(target, gene_name):
     """
     Plot the distribution of gene expression for a specific gene.
@@ -1525,7 +1622,9 @@ def plot_gene_distribtion(target, gene_name):
     plt.yticks(size = 12, weight = 'bold')
     plt.xticks(size = 12, weight = 'bold')
     plt.show()
-   
+
+
+
 def plot_gene_density(target, data, sorted_best, gene_name, scale_name, plot_color):
     """
     Plot the density distribution of gene expression for a specific gene.
@@ -1552,6 +1651,8 @@ def plot_gene_density(target, data, sorted_best, gene_name, scale_name, plot_col
                           grid="y", linewidth=1, legend=False, overlap=0.5, figsize=(6,5),kind="kde", bins=80,
                           title=gene_name, ylabels=False,
                           colormap=cm.autumn_r)
+
+
 
 def plot_pval_rsq_correlation(table, feature1, feature2, show_fit = True, log_transform = False):
     
@@ -1605,6 +1706,8 @@ def plot_pval_rsq_correlation(table, feature1, feature2, show_fit = True, log_tr
     plt.xticks(size = 14)
     plt.yticks(size = 14)
     plt.show()
+
+
 
 def plot_condition(target, data, sorted_best, condition_type, scale_name, plot_color):
     """
@@ -1699,7 +1802,9 @@ def plot_condition(target, data, sorted_best, condition_type, scale_name, plot_c
         
                 j += 1
             i += 1
-            
+
+
+
 def plot_6_best(target, data, sorted_best, scale_name, plot_color):
     """
     Plot the 6 best-fitted models for each pattern type (linear, quadratic, linear_quadratic) and regulation direction (up, down) in gene expression.
@@ -1754,6 +1859,7 @@ def plot_6_best(target, data, sorted_best, scale_name, plot_color):
             k += 1
             
     
+
 def plot_hor_vs_vert(data, subplot, x, y, c, xlabel, ylabel, rotation,
                      tick_bottom, tick_left, title,fontsize=24):
     
@@ -1805,7 +1911,537 @@ def plot_hor_vs_vert(data, subplot, x, y, c, xlabel, ylabel, rotation,
     ax.tick_params(bottom=tick_bottom, left=tick_left)
     return None
 
-def volcano_plot(scores, foldchanges, p_values, cell_type, feature1, feature2, fc_thr = 1, pv_thr = 1,
+
+# done
+def map_color(
+    df,
+    fc_thr,
+    pv_thr,
+    selected_labels_all,
+    my_pal=None,
+    feature1=None,
+    feature2=None,
+    hue_order=None,
+    palette=None
+):
+    '''
+    Assigns color categories, point shapes, and sizes for volcano plot visualization.
+    It also identifies "important" genes for specialized shape mapping and calculates point sizes based 
+    on significance.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The differential expression results. Must contain 'log2FoldChange', 
+        'nlog10' (negative log10 of the p-value), and 'symbol' columns.
+    fc_thr : float
+        The fold change threshold used to define 'higher' and 'lower' expression.
+    pv_thr : float
+        The significance threshold (in -log10 scale).
+    selected_labels_all : list or set
+        A collection of gene symbols considered "important" to be assigned 
+        a specific shape in the plot.
+    my_pal : dict, optional
+        A dictionary mapping feature names to specific hex or named colors.
+    feature1 : str, optional
+        The name of the first experimental group (used to pull colors from my_pal).
+    feature2 : str, optional
+        The name of the second experimental group (used to pull colors from my_pal).
+    hue_order : list, optional
+        Explicit ordering of color categories for the plot legend.
+    palette : list, optional
+        List of colors corresponding to the categories in hue_order.
+
+    Returns
+    -------
+    df : pd.DataFrame
+        The input DataFrame with added 'color', 'shape', and 'baseMean' columns.
+    hue_order : list
+        The final list of categories used for plot coloring.
+    palette : list
+        The final list of colors mapped to the hue_order.
+    '''
+    def map_color(row, fc_thrr, pv_thrr):
+        fc = row["log2FoldChange"]
+        sig = row["nlog10"] >= pv_thrr
+        if not sig:
+            if fc >= fc_thrr:
+                return "higher"
+            if fc <= -fc_thrr:
+                return "lower"
+            return "no"
+        if fc >= fc_thrr:
+            if fc > 2 * fc_thrr:
+                return "very higher"
+            return "higher"
+        if fc <= -fc_thrr:
+            if fc < -2 * fc_thrr:
+                return "very lower"
+            return "lower"
+        return "mix"
+
+    def map_shape(symbol):
+        if symbol in selected_labels_all:
+            return "important"
+        return "not"
+
+    # Map color
+    df["color"] = df.apply(lambda r: map_color(r, fc_thrr=fc_thr, pv_thrr=pv_thr), axis=1)
+
+    # Use my_pal if provided, else default palette
+    if my_pal is not None and feature1 in my_pal and feature2 in my_pal:
+        color1 = my_pal[feature1]
+        color2 = my_pal[feature2]
+        if hue_order is None:
+            hue_order = ["no", "very higher", "very lower"]
+        if palette is None:
+            palette = ["lightgrey", color2, color1]
+    else:
+        if hue_order is None:
+            hue_order = ["no", "very higher", "higher", "mix", "very lower", "lower"]
+        if palette is None:
+            palette = [
+                "lightgrey",          # non‑significant / no
+                "#d62a2b",            # very higher
+                "#D62A2B7A",          # higher (semi‑transparent)
+                "lightgrey",          # mix
+                "#1f77b4",            # very lower
+                "#1F77B47D"           # lower (semi‑transparent)
+            ]
+
+    # Map shape and baseMean
+    df["shape"] = df["symbol"].map(map_shape)
+    df["baseMean"] = df["nlog10"] * 10
+
+    return df, hue_order, palette
+
+
+# done
+def volcano_plot_unified(
+    # input modes (mutually exclusive)
+    data=None,                    # DataFrame mode (provide data, symbol_Col, fc_col, pval_col)
+    symbol_col=None,
+    fc_col=None,
+    pval_col=None,
+    scores=None,                  # Series/array mode (provide scores, foldchanges, p_values)
+    foldchanges=None,
+    p_values=None,
+
+    # context
+    cell_type=None,
+    feature1=None,
+    feature2=None,
+
+    # thresholds
+    fc_thr=1.0,
+    pv_thr=1.0,                   # on -log10 scale
+
+    # labeling
+    label_mode="topN",            # "all" or "topN"
+    n_p=5,
+    n_n=5,
+
+    my_pal=None,                  # optional dict {feature: color}, otherwise use default palette
+    hue_order=None,
+    palette=None,
+    figsize=(20, 20),
+    font_size=18,
+    marker='o',
+    marker_edge_color='w',
+    markersize_legend=8,
+    font_weight_legend='normal',
+    size_legend=12,
+    dpi=100,
+    output_path=None,
+    save_prefix="volcano",
+    save_csv=True,
+):
+    """
+    Generate a unified volcano plot from either a DataFrame or Series/array input.
+
+    Input modes:
+      1) DataFrame: data + symbol_col + fc_col + pval_col
+      2) Series/array: scores, foldchanges, p_values
+
+    Parameters
+    ----------
+    data : pd.DataFrame or None, optional
+        Input DataFrame containing gene‑level results. If given, symbol_col, fc_col, and pval_col must also be provided.
+        If None, scores, foldchanges, and p_values must be provided instead.
+    symbol_col : str or None, optional
+        Column name in data containing gene symbols.
+    fc_col : str or None, optional
+        Column name in data containing log2 fold changes.
+    pval_col : str or None, optional
+        Column name in data containing p‑values or adjusted p‑values.
+    scores : pd.Series or array‑like or None, optional
+        Index must correspond to gene symbols; used in Series/array mode instead of data.
+    foldchanges : array‑like or None, optional
+        Array of log2 fold changes, used in Series/array mode.
+    p_values : pd.Series or array‑like or None, optional
+        Array or Series of p‑values (or adjusted p‑values), used in Series/array mode.
+    cell_type : str or None, optional
+        Name of the cell type being analyzed, used for CSV and title context.
+    feature1 : str or None, optional
+        Name of the first group/condition in the comparison (e.g., reference).
+    feature2 : str or None, optional
+        Name of the second group/condition in the comparison (e.g., test).
+    fc_thr : float, optional
+        Threshold on log2 fold change (absolute) for significance. Use ±fc_thr.
+    pv_thr : float, optional
+        Threshold on -log₁₀(p‑value) for significance.
+    label_mode : {'all', 'topN'}, optional
+        How to select labels for display.
+        'all': label all points that pass the thresholds.
+        'topN': label only the top n_p and n_n most significant points per side.
+    n_p : int, optional
+        Number of highest‑significance points on the positive log2FC side to label (used when label_mode == 'topN').
+    n_n : int, optional
+        Number of highest‑significance points on the negative log2FC side to label (used when label_mode == 'topN').
+    my_pal : dict or None, optional
+        Optional color palette as a dict {feature1: color1, feature2: color2}.
+        If provided and valid, a two‑color scheme is used for the legend instead of the default palette.
+    hue_order : list of str or None, optional
+        Order of color categories in the legend; if None, sensible defaults are used.
+    palette : list of color‑spec or None, optional
+        Color palette to use for hue categories; if None, a default palette with semi‑transparent colors is used.
+    figsize : tuple of float, optional
+        Figure size (width, height) for the plot.
+    font_size : int, optional
+        Base font size for titles, axis labels, and tick labels.
+    marker : str, optional
+        Marker style for all points (e.g., 'o', 's').
+    marker_edge_color : str, optional
+        Color of the marker edge (often 'w' for white edge).
+    markersize_legend : int, optional
+        Size of legend markers for the color legend.
+    font_weight_legend : str, optional
+        Font weight for legend text (e.g., 'normal', 'bold').
+    size_legend : int, optional
+        Font size for legend text.
+    dpi : int, optional
+        Dots per inch for the saved figure.
+    output_path : str or None, optional
+        Directory path where the plot (and optionally CSVs) should be saved. If None, only show the plot.
+    save_prefix : str, optional
+        Prefix used when saving the PDF file (e.g., "volcano").
+    save_csv : bool, optional
+        Whether to save CSV files of significant genes per feature (used when output_path is not None).
+    """
+
+
+    # Build DataFrame (log2FoldChange, nlog10, symbol)
+    # ------------------------------------------------------------------
+    if data is not None:
+        if any(v is None for v in (symbol_col, fc_col, pval_col)):
+            raise ValueError("In DataFrame mode, symbol_col, fc_col, and pval_col must be provided.")
+        df = pd.DataFrame({
+            "log2FoldChange": data[fc_col].values,
+            "nlog10": -np.log10(data[pval_col].values),
+            "symbol": data[symbol_col].values
+        })
+    else:
+        if scores is None or foldchanges is None or p_values is None:
+            raise ValueError("In Series mode, scores, foldchanges, and p_values must all be provided.")
+        df = pd.DataFrame({
+            "log2FoldChange": np.asarray(foldchanges),
+            "nlog10": -np.log10(np.asarray(p_values)),
+            "symbol": np.asarray(scores.index)
+        })
+
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    df.dropna(subset=["nlog10"], how="all", inplace=True)
+
+    # Significance masks, CSV export
+    # ------------------------------------------------------------------
+    sig_mask = (np.abs(df["log2FoldChange"]) >= fc_thr) & (df["nlog10"] >= pv_thr)
+    selected_labels_all = df.loc[sig_mask, "symbol"].values
+
+    group1_mask = (df["log2FoldChange"] <= -fc_thr) & (df["nlog10"] >= pv_thr)
+    group2_mask = (df["log2FoldChange"] >=  fc_thr) & (df["nlog10"] >= pv_thr)
+
+    group1_selected = df.loc[group1_mask, "symbol"].values
+    group2_selected = df.loc[group2_mask, "symbol"].values
+
+    if output_path is not None and save_csv:
+        if cell_type is None:
+            cell_type = "NA"
+        if feature1 is None:
+            feature1 = "group1"
+        if feature2 is None:
+            feature2 = "group2"
+
+        pd.DataFrame(group1_selected, columns=["symbol"]).to_csv(
+            f"{output_path}/significant_genes_{cell_type}_{feature1}.csv", index=False
+        )
+        pd.DataFrame(group2_selected, columns=["symbol"]).to_csv(
+            f"{output_path}/significant_genes_{cell_type}_{feature2}.csv", index=False
+        )
+
+    # Color mapping
+    df, hue_order, palette = map_color(
+        df=df,
+        fc_thr=fc_thr,
+        pv_thr=pv_thr,
+        selected_labels_all=selected_labels_all,
+        my_pal=my_pal,
+        feature1=feature1,
+        feature2=feature2,
+        hue_order=None,      # or pass a custom one if needed
+        palette=None
+    )
+
+
+    # Label selection
+    # ------------------------------------------------------------------
+    if label_mode == "all":
+        subset_labels = selected_labels_all
+    elif label_mode == "topN":
+        filtered_df = df.loc[df["nlog10"] >= pv_thr]
+        pos_df = filtered_df.loc[filtered_df["log2FoldChange"] >= fc_thr]
+        pos_df = pos_df.sort_values(by="nlog10", ascending=False).head(n_p)
+        neg_df = filtered_df.loc[filtered_df["log2FoldChange"] <= -fc_thr]
+        neg_df = neg_df.sort_values(by="nlog10", ascending=False).head(n_n)
+        subset_labels = np.concatenate([pos_df["symbol"].values, neg_df["symbol"].values])
+    else:
+        raise ValueError("label_mode must be 'all' or 'topN'.")
+
+    # Plotting
+    # ------------------------------------------------------------------
+    plt.figure(figsize=figsize, frameon=False, dpi=dpi)
+    plt.style.use("default")
+
+    ax = sns.scatterplot(
+        data=df,
+        x="log2FoldChange",
+        y="nlog10",
+        hue="color",
+        hue_order=hue_order,
+        palette=palette,
+        style="shape",
+        style_order=["not", "important"],
+        markers=["o", "o"],
+        size="baseMean",
+        sizes=(40, 800)
+    )
+
+    # Lines
+    ax.axhline(pv_thr, zorder=0, c="k", lw=2, ls="--")
+    ax.axvline(fc_thr,  zorder=0, c="k", lw=2, ls="--")
+    ax.axvline(-fc_thr, zorder=0, c="k", lw=2, ls="--")
+
+    # Labels
+    texts = []
+    for i in range(len(df)):
+        if df.iloc[i].symbol in subset_labels:
+            if df.iloc[i].nlog10 >= pv_thr and df.iloc[i].log2FoldChange >= fc_thr:
+                texts.append(
+                    plt.text(
+                        x=df.iloc[i].log2FoldChange,
+                        y=df.iloc[i].nlog10,
+                        s=df.iloc[i].symbol,
+                        fontsize=font_size,
+                        weight="bold",
+                        family="sans-serif",
+                    )
+                )
+            if df.iloc[i].nlog10 >= pv_thr and df.iloc[i].log2FoldChange <= -fc_thr:
+                texts.append(
+                    plt.text(
+                        x=df.iloc[i].log2FoldChange,
+                        y=df.iloc[i].nlog10,
+                        s=df.iloc[i].symbol,
+                        fontsize=font_size,
+                        weight="bold",
+                        family="sans-serif",
+                    )
+                )
+    if texts:
+        adjust_text(texts)
+
+    # Legend
+    if feature1 is None:
+        feature1 = "group1"
+    if feature2 is None:
+        feature2 = "group2"
+
+    col_pos = palette[1] if len(palette) > 1 else "#d62a2b"
+    col_neg = palette[-1] if len(palette) > 1 else "#1f77b4"
+
+    custom_lines = [
+        Line2D([0], [0], marker=marker, color=marker_edge_color,
+               markerfacecolor=col_pos, markersize=markersize_legend),
+        Line2D([0], [0], marker=marker, color=marker_edge_color,
+               markerfacecolor=col_neg, markersize=markersize_legend),
+    ]
+    plt.legend(
+        custom_lines,
+        [f"Higher expressions in {feature2}", f"Higher expressions in {feature1}"],
+        loc=1,
+        bbox_to_anchor=(1, 1.1),
+        frameon=False,
+        prop={"weight": font_weight_legend, "size": size_legend},
+    )
+
+    # Axis styling
+    for axis in ["bottom", "left"]:
+        ax.spines[axis].set_linewidth(2)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.tick_params(width=2)
+    ax.set_ylim(bottom=0)
+
+    plt.title(f"Expression Score\n{feature1} - {feature2}", fontsize=font_size)
+    plt.xticks(size=font_size, weight="bold")
+    plt.yticks(size=font_size, weight="bold")
+    plt.xlabel("$log_{2}$ (Fold Change)", size=font_size)
+    plt.ylabel("-$log_{10}$ (P-value)", size=font_size)
+
+    # Save
+    if output_path is not None:
+        plt.savefig(
+            f"{output_path}/{save_prefix}_{feature1}-{feature2}_FC.pdf",
+            dpi=dpi,
+            bbox_inches="tight",
+            facecolor="white",
+        )
+
+    plt.show()
+
+
+
+def plot_stats_by_pattern(cluster_names: list = None,
+                          all_stats_extend: pd.DataFrame = None,
+                          gene_dict: dict = None,
+                          pline: list = None,
+                          path_to_results: str = None,
+                          file_name: str = "/Whole_expressions.csv",
+                          font_size: int = 24,p_value=0.01,create_new_plot_folder=False,fc_ther=0.5):
+    """
+    Parameters
+    ----------
+    cluster_names : list, optional
+        List of cluster names to be considered.
+    all_stats_extend : DataFrame, optional
+        DataFrame containing stats for each gene and the cluster its belong.
+    gene_dict : dict, optional
+        Dictionary map gene to cluster its belong.
+    pline : list, optional
+        Values for axis x to plot curve. 
+    path_to_results : str, optional
+        path to save result contained Markers and cells.
+    file_name : str, optional
+        File name same for all clusters have fitting information for genes.
+        The default is "/Whole_expressions.csv".
+    font_size : int, optional
+        Specify font size for labels and names. The default is 12.
+    fc_ther: float, optional
+        Threshold for FC.
+
+    Returns
+    -------
+    return figures for each cluster ploting top 4 genes for each pattern.
+
+    """
+    plt.rcParams.update({'font.size': font_size})
+    # plot results
+    for cluster in cluster_names:
+        my_data = all_stats_extend[ (all_stats_extend['cluster'] == str(cluster)) & (all_stats_extend['pvalue'] < p_value)]
+        my_data['FC']=my_data['FC'].astype(float)
+        my_data=my_data[my_data['FC'] > fc_ther]
+        sort_my_data = my_data.sort_values(['pvalue'],
+                ascending=[True]).groupby('Expression pattern').head(4)
+        expression_patterns = np.unique(sort_my_data['Expression pattern'])
+        if(len(expression_patterns)):
+
+            n_col = 4
+            n_row = len(expression_patterns)
+            n_px = 10
+
+            plt.rcParams["figure.facecolor"] = 'w'
+            
+                
+            #plt.figure(figsize=(80, 80))
+            #f, axs = plt.subplots(n_row, n_col, figsize=(16, 8))
+            plt.figure(figsize=(80, 80))  # Set the overall figure size
+
+            # Adjust the size of individual subplots
+            subplot_width = 8  # Choose an appropriate value
+            subplot_height = 6  # Choose an appropriate value
+
+            f, axs = plt.subplots(n_row, n_col, figsize=(n_col * subplot_width, n_row * subplot_height))
+            axs = np.atleast_2d(axs)
+           
+          
+
+            p = 0
+            for pattern in expression_patterns:
+                pattern_stats = sort_my_data[sort_my_data['Expression pattern'] == pattern]
+                k = 0
+                for i, row in pattern_stats.iterrows():
+                    cluster_n = row['cluster']
+                    gene_name = row['gene']
+                    WT_x, WT_tf, WT_curve, KO_x, KO_tf, KO_curve = get_two_tables(gene_name, cluster_n, gene_dict,
+                                                                                  file_name, pline, path_to_results)
+
+                    if(KO_x is not None):
+                        axs[p, k].scatter([x+0.2 for x in KO_x], KO_tf, alpha = 0.2, c = "tab:gray")
+                    axs[p, k].scatter(WT_x, WT_tf, alpha = 0.5, c = WT_tf, cmap = 'viridis',
+                              norm = colors.CenteredNorm(np.mean(WT_tf)))
+
+                    axs[p, k].axis(xmin = min(WT_x), xmax = max(WT_x))
+
+                    if(KO_x is not None):
+                        axs[p, k].plot(np.linspace(min(WT_x),max(WT_x)), KO_curve,
+                                       c = "dimgray", linewidth = 4.0)
+                    axs[p, k].plot(np.linspace(min(WT_x),max(WT_x)), WT_curve,
+                                   c = "tab:orange", linewidth = 4.0)
+
+                    axs[p, k].set_title(gene_name, size = font_size, weight = 'bold')
+                    if( k == 0):
+                        plt.rcParams.update({'font.size': font_size-4})
+                        axs[p, k].set_ylabel(pattern, size = font_size-4)
+                    #else:
+                        
+                     #   axs[p, k].set_ylabel('Gene expression', size = 16)
+                    plt.rcParams.update({'font.size': font_size})
+                    for item in (axs[p, k].get_xticklabels() + axs[p, k].get_yticklabels()):
+                        item.set_fontsize(font_size)
+
+                    plt.text(.01, .99, 'p-value = %.2e ' % + Decimal(str(row['pvalue'])),
+                             ha = 'left', va = 'top',
+                             transform=axs[p, k].transAxes, size = font_size)
+                    axs[p, k].yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+                    k += 1
+                while(k != 4):
+                    axs[p, k].set_axis_off()
+                    k += 1
+                p += 1
+            plt.subplots_adjust(wspace = 0.5, hspace = 0.7)
+            
+            if create_new_plot_folder:
+                if not os.path.exists(path_to_results+'/plot_genes_for_'+str(cluster)+'/'):  
+                    os.makedirs(path_to_results+'/plot_genes_for_'+str(cluster)+'/')
+            
+                save_path = path_to_results+'/plot_genes_for_'+str(cluster)+'/'+str(cluster) + ".png"
+                plt.savefig(save_path)
+                plt.close()
+            else:   
+                if not os.path.exists(path_to_results+'/plots_gene_cluster_differentiation/'):  
+                        os.makedirs(path_to_results+'/plots_gene_cluster_differentiation/')
+
+                save_path = path_to_results+'/plots_gene_cluster_differentiation/'+str(cluster) + ".png"
+                plt.savefig(save_path)
+                print('Plot for '+str(cluster))
+                plt.show()
+                plt.close()
+
+#--------------------------------------------------------------------------------------------------------------------
+#                                R Versions/old versions
+#--------------------------------------------------------------------------------------------------------------------
+
+
+def volcano_plot_old(scores, foldchanges, p_values, cell_type, feature1, feature2, fc_thr = 1, pv_thr = 1,
                  figsize = (20,20), output_path = None,n_p=5,n_n=5,font_size=18, marker='o',
                              color='w',
                              markersize=8,
@@ -1963,9 +2599,8 @@ def volcano_plot(scores, foldchanges, p_values, cell_type, feature1, feature2, f
     plt.show()
 
  
-
                 
-def map_color(a, fc_thrr, pv_thrr):
+def map_color_old(a, fc_thrr, pv_thrr):
     """
     Map colors based on specified thresholds for Fold Change and p-value.
 
@@ -1994,130 +2629,3 @@ def map_color(a, fc_thrr, pv_thrr):
         return 'mix'
     else:
         return 'no'
-
-def plot_stats_by_pattern(cluster_names: list = None,
-                          all_stats_extend: pd.DataFrame = None,
-                          gene_dict: dict = None,
-                          pline: list = None,
-                          path_to_results: str = None,
-                          file_name: str = "/Whole_expressions.csv",
-                          font_size: int = 24,p_value=0.01,create_new_plot_folder=False,fc_ther=0.5):
-    """
-    Parameters
-    ----------
-    cluster_names : list, optional
-        List of cluster names to be considered.
-    all_stats_extend : DataFrame, optional
-        DataFrame containing stats for each gene and the cluster its belong.
-    gene_dict : dict, optional
-        Dictionary map gene to cluster its belong.
-    pline : list, optional
-        Values for axis x to plot curve. 
-    path_to_results : str, optional
-        path to save result contained Markers and cells.
-    file_name : str, optional
-        File name same for all clusters have fitting information for genes.
-        The default is "/Whole_expressions.csv".
-    font_size : int, optional
-        Specify font size for labels and names. The default is 12.
-    fc_ther: float, optional
-        Threshold for FC.
-
-    Returns
-    -------
-    return figures for each cluster ploting top 4 genes for each pattern.
-
-    """
-    plt.rcParams.update({'font.size': font_size})
-    # plot results
-    for cluster in cluster_names:
-        my_data = all_stats_extend[ (all_stats_extend['cluster'] == str(cluster)) & (all_stats_extend['pvalue'] < p_value)]
-        my_data['FC']=my_data['FC'].astype(float)
-        my_data=my_data[my_data['FC'] > fc_ther]
-        sort_my_data = my_data.sort_values(['pvalue'],
-                ascending=[True]).groupby('Expression pattern').head(4)
-        expression_patterns = np.unique(sort_my_data['Expression pattern'])
-        if(len(expression_patterns)):
-
-            n_col = 4
-            n_row = len(expression_patterns)
-            n_px = 10
-
-            plt.rcParams["figure.facecolor"] = 'w'
-            
-                
-            #plt.figure(figsize=(80, 80))
-            #f, axs = plt.subplots(n_row, n_col, figsize=(16, 8))
-            plt.figure(figsize=(80, 80))  # Set the overall figure size
-
-            # Adjust the size of individual subplots
-            subplot_width = 8  # Choose an appropriate value
-            subplot_height = 6  # Choose an appropriate value
-
-            f, axs = plt.subplots(n_row, n_col, figsize=(n_col * subplot_width, n_row * subplot_height))
-            axs = np.atleast_2d(axs)
-           
-          
-
-            p = 0
-            for pattern in expression_patterns:
-                pattern_stats = sort_my_data[sort_my_data['Expression pattern'] == pattern]
-                k = 0
-                for i, row in pattern_stats.iterrows():
-                    cluster_n = row['cluster']
-                    gene_name = row['gene']
-                    WT_x, WT_tf, WT_curve, KO_x, KO_tf, KO_curve = get_two_tables(gene_name, cluster_n, gene_dict,
-                                                                                  file_name, pline, path_to_results)
-
-                    if(KO_x is not None):
-                        axs[p, k].scatter([x+0.2 for x in KO_x], KO_tf, alpha = 0.2, c = "tab:gray")
-                    axs[p, k].scatter(WT_x, WT_tf, alpha = 0.5, c = WT_tf, cmap = 'viridis',
-                              norm = colors.CenteredNorm(np.mean(WT_tf)))
-
-                    axs[p, k].axis(xmin = min(WT_x), xmax = max(WT_x))
-
-                    if(KO_x is not None):
-                        axs[p, k].plot(np.linspace(min(WT_x),max(WT_x)), KO_curve,
-                                       c = "dimgray", linewidth = 4.0)
-                    axs[p, k].plot(np.linspace(min(WT_x),max(WT_x)), WT_curve,
-                                   c = "tab:orange", linewidth = 4.0)
-
-                    axs[p, k].set_title(gene_name, size = font_size, weight = 'bold')
-                    if( k == 0):
-                        plt.rcParams.update({'font.size': font_size-4})
-                        axs[p, k].set_ylabel(pattern, size = font_size-4)
-                    #else:
-                        
-                     #   axs[p, k].set_ylabel('Gene expression', size = 16)
-                    plt.rcParams.update({'font.size': font_size})
-                    for item in (axs[p, k].get_xticklabels() + axs[p, k].get_yticklabels()):
-                        item.set_fontsize(font_size)
-
-                    plt.text(.01, .99, 'p-value = %.2e ' % + Decimal(str(row['pvalue'])),
-                             ha = 'left', va = 'top',
-                             transform=axs[p, k].transAxes, size = font_size)
-                    axs[p, k].yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-                    k += 1
-                while(k != 4):
-                    axs[p, k].set_axis_off()
-                    k += 1
-                p += 1
-            plt.subplots_adjust(wspace = 0.5, hspace = 0.7)
-            
-            if create_new_plot_folder:
-                if not os.path.exists(path_to_results+'/plot_genes_for_'+str(cluster)+'/'):  
-                    os.makedirs(path_to_results+'/plot_genes_for_'+str(cluster)+'/')
-            
-                save_path = path_to_results+'/plot_genes_for_'+str(cluster)+'/'+str(cluster) + ".png"
-                plt.savefig(save_path)
-                plt.close()
-            else:   
-                if not os.path.exists(path_to_results+'/plots_gene_cluster_differentiation/'):  
-                        os.makedirs(path_to_results+'/plots_gene_cluster_differentiation/')
-
-                save_path = path_to_results+'/plots_gene_cluster_differentiation/'+str(cluster) + ".png"
-                plt.savefig(save_path)
-                print('Plot for '+str(cluster))
-                plt.show()
-                plt.close()
-
