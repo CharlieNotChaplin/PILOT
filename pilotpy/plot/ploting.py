@@ -2017,7 +2017,7 @@ def map_color(
 
 
 # done
-def volcano_plot_unified(
+def volcano_plot(
     # input modes (mutually exclusive)
     data=None,                    # DataFrame mode (provide data, symbol_Col, fc_col, pval_col)
     symbol_col=None,
