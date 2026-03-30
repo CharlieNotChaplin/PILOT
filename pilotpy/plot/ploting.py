@@ -20,12 +20,14 @@ from pydiffmap import diffusion_map
 
 # Plotting/UI
 import seaborn as sns
+import textwrap as tw
 from adjustText import adjust_text
 from cycler import cycler
 from matplotlib import pyplot as plt
 from matplotlib.font_manager import FontProperties
 from matplotlib.image import imread
 from matplotlib.lines import Line2D
+
 
 # Graphs/Network
 from sknetwork.clustering import Louvain
@@ -39,7 +41,7 @@ warnings.filterwarnings('ignore')
 
 # CHANGED
 # replaced os.path with pathlib
-# updated functions: volcano_plot, map_colors
+# updated functions: volcano_plot, map_colors, gene_annotation_cell_type_subgroup
 # sorted and removed unnecessary imports
 # A lot of function header formatting
 
@@ -206,7 +208,7 @@ def heatmaps(adata,figsize=(12,12),col_cluster=True,row_cluster=True,cmap='Blues
    # sns.set(font_scale=font_scale)
     sns.clustermap(cost[annot.cell_type.unique()],cmap=cmap,figsize=figsize,col_cluster=col_cluster,row_cluster=row_cluster);
     plt.title('Cost Matrix',loc='center')
-    plt.savefig(plot_path / 'Cost_matrix.pdf') 
+    plt.savefig(plot_path / 'Cost matrix.pdf') 
     plt.close(fig)
     
     fig = plt.figure()
@@ -250,7 +252,7 @@ def heatmaps_df(df, figsize=(12, 12), col_cluster=True, row_cluster=True, cmap='
                    cmap=cmap,
                    figsize=figsize,
                    xticklabels=True);
-    plt.savefig(plot_path / 'Proportions_of_cell_types_for_samples_over_trajectory.pdf')
+    plt.savefig(plot_path / 'Proportions of cell types for samples over trajectory.pdf')
     
        
 # done
@@ -290,7 +292,7 @@ def fit_pricipla_graph(adata,NumNodes=20,source_node=0,show_text=True,Do_PCA=Fal
         Fits an Elastic Principal Graph, plots it, and extracts pseudotime information.
     """
     
-    plot_path='Results_PILOT/plots'    
+    plot_path=Path('Results_PILOT/plots' )   
     plot_path.mkdir(parents=True, exist_ok=True)
 
     emb=adata.uns['embedding']
@@ -481,7 +483,7 @@ def select_best_sil(adata,resolutions=[],marker='o',figsize=(10,10),facecolor="w
     plt.xlabel('Resolution')
     plt.ylabel('Silhouette Score')
     plt.title('Silhouette Score vs. Resolution')
-    plt.savefig(result_path / 'Silhouette_score_vs_resolution.pdf')
+    plt.savefig(result_path / 'Silhouette score VS resolution.pdf')
     plt.show()
     
     
@@ -491,7 +493,7 @@ def select_best_sil(adata,resolutions=[],marker='o',figsize=(10,10),facecolor="w
     plt.xlabel('Resolution')
     plt.ylabel('Number of Clusters')
     plt.title('Number of Clusters vs. Resolution')
-    plt.savefig(result_path / 'Number_of_clusters_vs_resolution.pdf')
+    plt.savefig(result_path / 'Number of clusters VS resolution.pdf')
     plt.show()
     
 
@@ -539,7 +541,7 @@ def cell_type_diff_two_sub_patient_groups(proportions: pd.DataFrame = None,
         plot_path=Path('Results_PILOT/plots')
         plot_path.mkdir(parents=True, exist_ok=True)
     else:
-        plot_path=file_path
+        plot_path=Path(file_path)
     
         
      
@@ -575,7 +577,7 @@ def cell_type_diff_two_sub_patient_groups(proportions: pd.DataFrame = None,
     
     diff_result_path = Path('Results_PILOT/Diff_Expressions_Results')
     diff_result_path.mkdir(parents=True, exist_ok=True)
-    stats_bar_group12.to_csv(diff_result_path / "Cell_type_diff_" + group1 + "_vs_" + group2 +".csv",
+    stats_bar_group12.to_csv(diff_result_path / f"Cell_type_diff_{group1}_vs_{group2}.csv",
                              header = True, index = None)
     
     # filter data based on a p-value threshold
@@ -586,9 +588,9 @@ def cell_type_diff_two_sub_patient_groups(proportions: pd.DataFrame = None,
     plot_hor_vs_vert(stats_bar_group12, 1, x = 'score', y = 'cell_type', c = 'type',
                      xlabel = 'statistic score', ylabel = None,
                      rotation = None, tick_bottom = True, tick_left = False,
-                     title = "Cell type rank " + group1 + " vs " + group2,fontsize=fontsize)
+                     title = f"Cell type rank {group1} vs {group2}",fontsize=fontsize)
     fig.tight_layout()
-    plt.savefig(plot_path + "/Cell_type_diff_" + group1 + "_vs_" + group2 +".pdf",
+    plt.savefig(plot_path / f"Cell type diff {group1} VS {group2}.pdf",
                           facecolor = 'white')
     
     
@@ -651,107 +653,96 @@ def plot_cell_types_distributions(proportions: pd.DataFrame = None,
     plt.xticks(fontsize = fontsize, rotation = rotation, ha = 'right', rotation_mode = 'anchor')
     plt.legend(fontsize = fontsize)
     fig.tight_layout()
-    plt.savefig(plot_path / "Cell_types_distributions.pdf",
+    plt.savefig(plot_path / "Cell types - distributions.pdf",
                           facecolor = 'white')
     plt.show()
- 
 
-# done    
-def gene_annotation_cell_type_subgroup(cell_type: str = None,
-                                   group: str = None,
-                                   source: str = None,
-                                   num_gos: int = 15,
-                                   figsize=(12,12),
-                                   font_size: int = 24,
-                                   bbox_inches: str = 'tight',
-                                   facecolor: str = 'white',
-                                   transparent: bool = False,
-                                   organism: str = 'hsapiens',
-                                   dpi: int = 100,
-                                   s: int = 200,
-                                   color: str = 'tab:blue'):
+
+
+def gene_annotation_cell_type_subgroup(
+    data: pd.DataFrame = None,
+    cell_type: str = "Unknown",
+    group: str = None,
+    symbol: str = 'gene',
+    sig_col: str = 'significant_gene',
+    sources: list = None,
+    num_gos: int = 10,
+    figsize: tuple = (6, 4),
+    font_size: int = 12,
+    max_length: int = 50,
+    path_to_results: str = 'Results_PILOT',
+    my_pal: dict = None,
+    save_plot: bool = True,
+    organism: str = 'hsapiens',
+    marker_size: int = 300
+):
     """
-    Perform Gene Ontology (GO) enrichment analysis and create a scatterplot of enriched terms.
-
-    Parameters:
-    ----------
-    cell_type : str, optional
-        Specify cell type name to check its differential expression genes. The default is None.
-    group : str, optional
-        Name of patients sub-group of interest. The default is None.
-    source : str, optional
-        Specify the source of GO terms. The default is None.
-    num_gos: int, optional
-        Number of GO terms to plot. Default is 5.
-    figsize: tuple, optional
-        figsize. Default is (12,12).
-    font_size: int, optional
-        Font size for labels. Default is 24.
-    bbox_inches: str, optional
-        Bounding box for saving the plot. Default is 'tight'.
-    facecolor: str, optional
-        Background color of the figure. Default is 'white'.
-    transparent: bool, optional
-        Set to True for a transparent figure. Default is False.
-    organism: str, optional
-        The organism for GO analysis. Default is 'hsapiens'.
-    dpi: int, optional
-        Dots per inch for the saved plot image. Default is 100.
-    s: int, optional
-        Marker size for the scatterplot. Default is 200.
-    color: str, optional
-        Color of the scatterplot markers. Default is 'tab:blue'.
-
-    Returns:
-    --------
-    None
-        Saves the scatterplot of enriched GO terms as a PDF file.
+    Unifies GO enrichment analysis. 
+    Handles direct DataFrame input (from DE analysis) or CSV loading.
     """
-
-    path_to_results=Path('Results_PILOT')
-    group_genes = pd.read_csv(path_to_results / 'Diff_Expressions_Results' / cell_type / f"Significant_genes_{cell_type}_{group}.csv",
-                               index_col=0)
     
-    gp = GProfiler(return_dataframe=True)
-    if list(group_genes['0'].values):
-        gprofiler_results = gp.profile(organism = organism,
-                                       query = list(group_genes['0'].values))
+    base_path = Path(path_to_results)
+    go_path = base_path / 'Diff_Expressions_Results' / cell_type / 'GO_analysis'
+    
+    # Plotting - color palette 
+    if my_pal and group in my_pal:
+        plot_color = my_pal[group]
     else:
-        return "Genes list is empty!"
-    
-    
-    if(gprofiler_results.shape[0] == 0):
-        return "Not enough information!"
+        plot_color = 'tab:blue'
 
-    
-    if(gprofiler_results.shape[0] < num_gos):
-        num_gos = gprofiler_results.shape[0]
-    
-    if source: 
-        gprofiler_results = gprofiler_results[gprofiler_results['source']==source]
-       
-    
-  
-    selected_gps = gprofiler_results.head(num_gos)[['name', 'p_value']]
-    
+    # Get query genes
+    if data is not None:
+        query_genes = data.loc[data[sig_col] == group, symbol].dropna().unique().tolist()
+    else:
+        # Load from CSV if no DataFrame provided
+        file_path = base_path / 'Diff_Expressions_Results' / cell_type / f"Significant_genes_{cell_type}_{group}.csv"
+        if not file_path.exists():
+            return f"Error: No data provided and file not found at {file_path}"
+        
+        df_load = pd.read_csv(file_path, index_col=0)
+        query_genes = df_load['0'].dropna().tolist() if '0' in df_load.columns else df_load.index.dropna().tolist()
+
+    if not query_genes:
+        return f"No significant genes found for group: {group}"
+
+    # GProfiler Analysis
+    gp = GProfiler(return_dataframe=True)
+    gprofiler_results = gp.profile(
+        organism=organism,
+        query=query_genes,
+        no_evidences=False,
+        sources=sources
+    )
+
+    if gprofiler_results is None or gprofiler_results.empty:
+        return "Not enough GO information found for these genes."
+
+    # Data preparation for plotting
+    num_gos = min(num_gos, gprofiler_results.shape[0])
+    selected_gps = gprofiler_results.head(num_gos).copy()
     selected_gps['nlog10'] = -np.log10(selected_gps['p_value'].values)
 
-    plt.figure(figsize = figsize, dpi = dpi)
+    # Wrap labels for better fit
+    selected_gps['name'] = selected_gps['name'].apply(lambda x: "\n".join(tw.wrap(x, max_length)))
+
+    # Plotting
+    plt.figure(figsize=figsize, dpi=100)
     plt.style.use('default')
-    sns.scatterplot(data = selected_gps, x= "nlog10", y= "name", s = s, color = color)
+    sns.scatterplot(data=selected_gps, x="nlog10", y="name", s=marker_size, color=plot_color)
 
-    plt.title('GO enrichment in ' + cell_type + ' associated with ' + group, fontsize = font_size)
-
-    plt.xticks(size = font_size)
-    plt.yticks(size = font_size)
-
-    plt.ylabel("GO Terms", size = font_size)
-    plt.xlabel("-$log_{10}$ (P-value)", size = font_size)
+    plt.title(f'GO enrichment in {cell_type} ({group})\n(n={len(query_genes)} genes)', fontsize=font_size + 2)
+    plt.xticks(size=font_size)
+    plt.yticks(size=font_size)
+    plt.ylabel("GO Terms", size=font_size)
+    plt.xlabel("$-log_{10}$ (P-value)", size=font_size)
     
-    go_path = Path(path_to_results / 'Diff_Expressions_Results' / cell_type / 'GO_analysis')
-    go_path.mkdir(parents=True, exist_ok=True)
-    plt.savefig(go_path / f"{group}.pdf", bbox_inches = bbox_inches, facecolor=facecolor, transparent=transparent)
-    gprofiler_results.to_csv(go_path / f"{group}_{cell_type}_all_gprofiler_results.csv")
+    # Saving
+    if save_plot:
+        go_path.mkdir(parents=True, exist_ok=True)
+        plt.savefig(go_path / f"{group}_GO_plot.pdf", bbox_inches='tight', facecolor='white')
+        gprofiler_results.to_csv(go_path / f"{group}_full_GO_results.csv")
+    
+    plt.show()
 
 
 
@@ -905,12 +896,10 @@ def go_enrichment(df,
 
     plt.ylabel("GO Terms", size = fontsize)
     plt.xlabel("-$log_{10}$ (P-value)", size = fontsize)
-    #if not os.path.exists(path+'GO/'):
-       # os.makedirs(path+'GO/')
     #plt.savefig(path+'GO/'+cell_type+".pdf", bbox_inches = 'tight', facecolor='white', transparent=False)
-    if not os.path.exists(result_path+'GO/'+cell_type+'/'):
-        os.makedirs(result_path+'GO/'+cell_type+'/')
-    plt.savefig(result_path+'GO/'+cell_type+'/'+cell_type+".pdf", bbox_inches = bbox_inches, facecolor=facecolor, transparent=transparent)
+    save_path = Path(result_path / "GO" / cell_type)
+    save_path.mkdir(parents=True, exist_ok=True)
+    plt.savefig(save_path / f"{cell_type}.pdf", bbox_inches = bbox_inches, facecolor=facecolor, transparent=transparent)
     
 
 # done
@@ -2053,7 +2042,7 @@ def volcano_plot(
     size_legend=12,
     dpi=100,
     output_path=None,
-    save_prefix="volcano",
+    save_prefix="Volcano",
     save_csv=True,
 ):
     """
@@ -2124,7 +2113,7 @@ def volcano_plot(
     output_path : str or None, optional
         Directory path where the plot (and optionally CSVs) should be saved. If None, only show the plot.
     save_prefix : str, optional
-        Prefix used when saving the PDF file (e.g., "volcano").
+        Prefix used when saving the PDF file (e.g., "Volcano").
     save_csv : bool, optional
         Whether to save CSV files of significant genes per feature (used when output_path is not None).
     """
@@ -2172,10 +2161,10 @@ def volcano_plot(
             feature2 = "group2"
 
         pd.DataFrame(group1_selected, columns=["symbol"]).to_csv(
-            f"{output_path}/significant_genes_{cell_type}_{feature1}.csv", index=False
+            Path(output_path) / f"Significant_genes_{cell_type}_{feature1}.csv", index=False
         )
         pd.DataFrame(group2_selected, columns=["symbol"]).to_csv(
-            f"{output_path}/significant_genes_{cell_type}_{feature2}.csv", index=False
+            Path(output_path) / f"Significant_genes_{cell_type}_{feature2}.csv", index=False
         )
 
     # Color mapping
@@ -2300,7 +2289,7 @@ def volcano_plot(
     # Save
     if output_path is not None:
         plt.savefig(
-            f"{output_path}/{save_prefix}_{feature1}-{feature2}_FC.pdf",
+            Path(output_path) / f"{save_prefix} {feature1}-{feature2} FC.pdf",
             dpi=dpi,
             bbox_inches="tight",
             facecolor="white",
@@ -2509,10 +2498,10 @@ def volcano_plot_old(scores, foldchanges, p_values, cell_type, feature1, feature
 
     selected_labels = df.loc[ (np.abs(df.log2FoldChange) >= fc_thr) & (df['nlog10'] >= pv_thr)]['symbol'].values
     group1_selected_labels = df.loc[ (df.log2FoldChange <= -fc_thr) & (df['nlog10'] >= pv_thr)]['symbol'].values
-    pd.DataFrame(group1_selected_labels).to_csv(output_path + "/significant_genes_" + str(cell_type) + "_" + str(feature1) + ".csv")
+    pd.DataFrame(group1_selected_labels).to_csv(output_path + "/Significant_genes_" + str(cell_type) + "_" + str(feature1) + ".csv")
     
     group2_selected_labels = df.loc[ (df.log2FoldChange >= fc_thr) & (df['nlog10'] >= pv_thr)]['symbol'].values
-    pd.DataFrame(group2_selected_labels).to_csv(output_path + "/significant_genes_" + str(cell_type) + "_" + str(feature2) + ".csv")
+    pd.DataFrame(group2_selected_labels).to_csv(output_path + "/Significant_genes_" + str(cell_type) + "_" + str(feature2) + ".csv")
     
     def map_shape(symbol):
         if symbol in selected_labels:
@@ -2594,7 +2583,7 @@ def volcano_plot_old(scores, foldchanges, p_values, cell_type, feature1, feature
     plt.ylabel("-$log_{10}$ (P-value)", size = font_size)
 
 #     plt.savefig(filename, dpi = 100, bbox_inches = 'tight', facecolor = 'white')
-    plt.savefig(output_path + "/volcano_" + str(feature1) + "-" + str(feature2) + "_FC.pdf",
+    plt.savefig(Path(output_path) / f"Volcano {str(feature1)} {str(feature2)} FC.pdf",
                 dpi = dpi, bbox_inches = 'tight', facecolor = 'white')
     plt.show()
 
@@ -2629,3 +2618,109 @@ def map_color_old(a, fc_thrr, pv_thrr):
         return 'mix'
     else:
         return 'no'
+
+
+
+def gene_annotation_cell_type_subgroup_old(cell_type: str = None,
+                                   group: str = None,
+                                   source: str = None,
+                                   num_gos: int = 15,
+                                   figsize=(12,12),
+                                   font_size: int = 24,
+                                   bbox_inches: str = 'tight',
+                                   facecolor: str = 'white',
+                                   transparent: bool = False,
+                                   organism: str = 'hsapiens',
+                                   dpi: int = 100,
+                                   s: int = 200,
+                                   color: str = 'tab:blue'):
+    """
+    Perform Gene Ontology (GO) enrichment analysis and create a scatterplot of enriched terms.
+
+    Parameters:
+    ----------
+    cell_type : str, optional
+        Specify cell type name to check its differential expression genes. The default is None.
+    group : str, optional
+        Name of patients sub-group of interest. The default is None.
+    source : str, optional
+        Specify the source of GO terms. The default is None.
+    num_gos: int, optional
+        Number of GO terms to plot. Default is 5.
+    figsize: tuple, optional
+        figsize. Default is (12,12).
+    font_size: int, optional
+        Font size for labels. Default is 24.
+    bbox_inches: str, optional
+        Bounding box for saving the plot. Default is 'tight'.
+    facecolor: str, optional
+        Background color of the figure. Default is 'white'.
+    transparent: bool, optional
+        Set to True for a transparent figure. Default is False.
+    organism: str, optional
+        The organism for GO analysis. Default is 'hsapiens'.
+    dpi: int, optional
+        Dots per inch for the saved plot image. Default is 100.
+    s: int, optional
+        Marker size for the scatterplot. Default is 200.
+    color: str, optional
+        Color of the scatterplot markers. Default is 'tab:blue'.
+
+    Returns:
+    --------
+    None
+        Saves the scatterplot of enriched GO terms as a PDF file.
+    """
+
+    path_to_results=Path('Results_PILOT')
+    group_genes = pd.read_csv(path_to_results / 'Diff_Expressions_Results' / cell_type / f"Significant_genes_{cell_type}_{group}.csv",
+                               index_col=0)
+    
+    gp = GProfiler(return_dataframe=True)
+    if '0' in group_genes.columns:
+        query_genes = group_genes['0'].dropna().astype(str).tolist()
+    else:
+        query_genes = group_genes.index.dropna().astype(str).tolist()
+
+    if query_genes:
+        print(f"Running gProfiler on {len(query_genes)} genes...")
+        gprofiler_results = gp.profile(
+            organism=organism,
+            query=query_genes
+        )
+    else:
+        print("No genes found to query.")
+    
+    
+    if(gprofiler_results.shape[0] == 0):
+        return "Not enough information!"
+
+    
+    if(gprofiler_results.shape[0] < num_gos):
+        num_gos = gprofiler_results.shape[0]
+    
+    if source: 
+        gprofiler_results = gprofiler_results[gprofiler_results['source']==source]
+       
+    
+  
+    selected_gps = gprofiler_results.head(num_gos)[['name', 'p_value']]
+    
+    selected_gps['nlog10'] = -np.log10(selected_gps['p_value'].values)
+
+    plt.figure(figsize = figsize, dpi = dpi)
+    plt.style.use('default')
+    sns.scatterplot(data = selected_gps, x= "nlog10", y= "name", s = s, color = color)
+
+    plt.title('GO enrichment in ' + cell_type + ' associated with ' + group, fontsize = font_size)
+
+    plt.xticks(size = font_size)
+    plt.yticks(size = font_size)
+
+    plt.ylabel("GO Terms", size = font_size)
+    plt.xlabel("-$log_{10}$ (P-value)", size = font_size)
+    
+    go_path = Path(path_to_results / 'Diff_Expressions_Results' / cell_type / 'GO_analysis')
+    go_path.mkdir(parents=True, exist_ok=True)
+    plt.savefig(go_path / f"{group}.pdf", bbox_inches = bbox_inches, facecolor=facecolor, transparent=transparent)
+    gprofiler_results.to_csv(go_path / f"{group}_{cell_type}_all_gprofiler_results.csv")

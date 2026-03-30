@@ -246,7 +246,7 @@ def compute_diff_expressions(adata,
 #                                R Versions/old versions
 #--------------------------------------------------------------------------------------------------------------------
 
-def extract_cells_from_gene_expression_for_clustering(adata,sample_col,col_cell,cell_list,path_results=None,normalization=True,n_top_genes=2000,highly_variable_genes_=False):
+def extract_cells_from_gene_expression_for_clustering_R(adata,sample_col,col_cell,cell_list,path_results=None,normalization=True,n_top_genes=2000,highly_variable_genes_=False):
     
     
     """
@@ -310,7 +310,7 @@ def extract_cells_from_gene_expression_for_clustering(adata,sample_col,col_cell,
         return df
 
 
-def compute_diff_expressions(adata,cell_type: str = None,
+def compute_diff_expressions_R(adata,cell_type: str = None,
                              proportions: pd.DataFrame = None,
                              selected_genes: list = None,
                              font_size:int=18,

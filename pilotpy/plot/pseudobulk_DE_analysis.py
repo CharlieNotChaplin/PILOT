@@ -14,6 +14,7 @@ import itertools
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.decomposition import PCA
 from matplotlib.lines import Line2D
+from pathlib import Path
 
 from adjustText import adjust_text
 from gprofiler import GProfiler
@@ -23,10 +24,13 @@ import matplotlib.pyplot as plt
 
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.ds import DeseqStats
+
+from .ploting import gene_annotation_cell_type_subgroup
 # 
 
 
-def plot_cell_numbers(adata, proportion_df,
+def plot_cell_numbers(adata, 
+                      proportion_df,
                       cell_type: str = None,
                       cluster_col: str = "Predicted_Labels",
                       celltype_col: str = "cell_types",
@@ -252,120 +256,19 @@ def map_color_ps(a, low_fc_thrr, high_fc_thrr, pv_thrr):
     else:
         return 'no'
     
-def gene_annotation_cell_type_subgroup(data: pd.DataFrame = None,
-                                       symbol: str = 'gene',
-                                       sig_col: str = 'significant_gene',
-                                       cell_type: str = None,
-                                       group: str = None,
-                                       sources: str = None,
-                                       num_gos: int = 10,
-                                       fig_h: int = 6,
-                                       fig_w: int = 4,
-                                       font_size: int = 14,
-                                       max_length:int = 50,
-                                       path_to_results: str = None,
-                                       my_pal = None
-                                     ):
-    """
-    Plot to show the most relative GO terms for specifc cell-type of determind patient sub-group
 
-    Parameters
-    ----------
-    data : pd.DataFrame
-        DESCRIPTION. The default is None.
-    symbol : str, optional
-        DESCRIPTION. The default is 'gene'.
-    sig_col : str, optional
-        DESCRIPTION. The default is 'significant_gene'.
-    cell_type : str
-        DESCRIPTION. The default is None.
-    group : str
-        DESCRIPTION. The default is None.
-    sources : str, optional
-        DESCRIPTION. The default is None.
-    num_gos : int, optional
-        DESCRIPTION. The default is 10.
-    fig_h : int, optional
-        DESCRIPTION. The default is 6.
-    fig_w : int, optional
-        DESCRIPTION. The default is 4.
-    font_size : int, optional
-        DESCRIPTION. The default is 14.
-    max_length : int, optional
-        DESCRIPTION. The default is 50.
-    path_to_results : str, optional
-        DESCRIPTION. The default is None.
-    my_pal : TYPE, optional
-        DESCRIPTION. The default is None.
 
-    Returns
-    -------
-    None.
 
-    """
-
-#     path_to_results = 'Results_PILOT'
-
-    color = my_pal[group]
-
-#     group_genes = pd.read_csv(path_to_results + \
-#                               "/significant_genes_" + cell_type + "_" + group + ".csv")
-
-    group_genes = data.loc[data[sig_col] == group, symbol].values
-    gp = GProfiler(return_dataframe = True)
-    if list(group_genes):
-        gprofiler_results = gp.profile(organism = 'hsapiens',
-                                       query = list(group_genes),
-                                       no_evidences = False,
-                                       sources = sources)
-    else:
-        return "Genes list is empty!"
     
-    if(gprofiler_results.shape[0] == 0):
-        return "Not enough information!"
-    elif(gprofiler_results.shape[0] < num_gos):
-        num_gos = gprofiler_results.shape[0]
-
-    all_gprofiler_results = gprofiler_results.copy()
-    # display(all_gprofiler_results.head())
-       
-    # print(len(list(group_genes['symbol'].values)))
-    # selected_gps = gprofiler_results.loc[0:num_gos,['name', 'p_value']]
-    selected_gps = gprofiler_results.head(num_gos)[['name', 'p_value']]
-    
-    selected_gps['nlog10'] = -np.log10(selected_gps['p_value'].values)
-
-    for i in selected_gps.index:
-        split_name = "\n".join(tw.wrap(selected_gps.loc[i, 'name'], max_length))
-        selected_gps.loc[i, 'name'] = split_name
-    
-    figsize = (fig_h, fig_w)
-
-    plt.figure(figsize = figsize, dpi = 100)
-    plt.style.use('default')
-    sns.scatterplot(data = selected_gps, x = "nlog10", y = "name", s = 300, color = color)
-
-    plt.title('GO enrichment in ' + cell_type + ' associated with ' + group + \
-              '\n (number of genes: ' + str(len(list(group_genes))) + ")", fontsize = font_size + 2)
-
-    plt.xticks(size = font_size)
-    plt.yticks(size = font_size)
-
-    plt.ylabel("GO Terms", size = font_size)
-    plt.xlabel("-$log_{10}$ (P-value)", size = font_size)
-    
-    save_path = path_to_results + '/'
-    if not os.path.exists(save_path):
-            os.makedirs(save_path)
-#     plt.savefig(save_path + group + ".pdf", bbox_inches = 'tight',
-#                 facecolor = 'white', transparent = False)
-    plt.show()
-    
-    all_gprofiler_results.to_csv(save_path + group + ".csv")
-    
-def get_sig_genes(data, symbol, foldchange, p_value, cell_type,
-                 feature1, feature2,
-                 low_fc_thr = 1, high_fc_thr = 1, pv_thr = 1):
+def get_sig_genes(data, 
+                  symbol, 
+                  foldchange, 
+                  p_value, 
+                  feature1, 
+                  feature2,
+                  low_fc_thr = 1, 
+                  high_fc_thr = 1, 
+                  pv_thr = 1):
     df = pd.DataFrame(columns=['log2FoldChange', 'nlog10', 'symbol'])
     df['log2FoldChange'] = data[foldchange]
     df['nlog10'] = -np.log10(data[p_value].values)
@@ -382,6 +285,8 @@ def get_sig_genes(data, symbol, foldchange, p_value, cell_type,
     data.loc[data[symbol].isin(group2_selected_labels), 'significant_gene'] = feature2
 
     return data
+
+
 
 def get_pseudobulk_DE(adata: ad.AnnData,
                       proportion_df: pd.DataFrame,
@@ -528,7 +433,7 @@ def get_pseudobulk_DE(adata: ad.AnnData,
                 # Extract single DataFrame 
                 data = list(res.values())[0]  
 
-                data = get_sig_genes(data, 'gene', 'log2FoldChange', 'padj', cell_type, 
+                data = get_sig_genes(data, 'gene', 'log2FoldChange', 'padj', 
                                    groups[0], groups[1], fc_thr[j], fc_thr[j], log_pv_thr)
                 
                 data.to_csv(save_path + "/" + str(groups[1]) + "vs" + str(groups[0]) + "_DE.csv")
@@ -547,11 +452,17 @@ def get_pseudobulk_DE(adata: ad.AnnData,
             print("Plot GO analysis for " + str(groups[1]) + " vs " + str(groups[0]))
             os.makedirs(save_path + "/" + str(groups[1]) + "vs" + str(groups[0]) + "/GOs/", exist_ok=True)
             for group in [groups[0], groups[1]]:
-                gene_annotation_cell_type_subgroup(data, cell_type=cell_type, group=group,
-                                                 sources=sources, num_gos=num_gos,
-                                                 fig_h=fig_h, fig_w=fig_w, font_size=fontsize,
-                                                 path_to_results=save_path + "/" + str(groups[1]) + "vs" + str(groups[0]) + "/GOs/",
-                                                 my_pal=my_pal)
+                print("About to run gene annotation...")
+                print(cell_type)
+                gene_annotation_cell_type_subgroup(data=data,
+                                                   cell_type=cell_type, 
+                                                   group=group,
+                                                   sources=sources, 
+                                                   num_gos=num_gos,
+                                                   figsize=(fig_h,fig_w),
+                                                   font_size=fontsize,
+                                                   path_to_results=Path(save_path) / f"{str(groups[1])}vs{str(groups[0])}" / "GOs",
+                                                   my_pal=my_pal)
         j += 1
 
 #--------------------------------------------------------------------------------------------------------------------
@@ -973,3 +884,115 @@ def get_pseudobulk_DE_R(adata: ad.AnnData,
                                                path_to_results = save_path + "/" + str(groups[1]) + "vs" + str(groups[0]) + "/GOs/",
                                                my_pal = my_pal)
         j += 1
+
+
+def gene_annotation_cell_type_subgroup2_old(data: pd.DataFrame = None,
+                                       symbol: str = 'gene',
+                                       sig_col: str = 'significant_gene',
+                                       cell_type: str = None,
+                                       group: str = None,
+                                       sources: str = None,
+                                       num_gos: int = 10,
+                                       fig_h: int = 6,
+                                       fig_w: int = 4,
+                                       font_size: int = 14,
+                                       max_length: int = 50,
+                                       path_to_results: str = None,
+                                       my_pal = None,
+                                       save_plot: bool = False
+                                     ):
+    """
+    Plot to show the most relative GO terms for specifc cell-type of determind patient sub-group
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        DESCRIPTION. The default is None.
+    symbol : str, optional
+        DESCRIPTION. The default is 'gene'.
+    sig_col : str, optional
+        DESCRIPTION. The default is 'significant_gene'.
+    cell_type : str
+        DESCRIPTION. The default is None.
+    group : str
+        DESCRIPTION. The default is None.
+    sources : str, optional
+        DESCRIPTION. The default is None.
+    num_gos : int, optional
+        DESCRIPTION. The default is 10.
+    fig_h : int, optional
+        DESCRIPTION. The default is 6.
+    fig_w : int, optional
+        DESCRIPTION. The default is 4.
+    font_size : int, optional
+        DESCRIPTION. The default is 14.
+    max_length : int, optional
+        DESCRIPTION. The default is 50.
+    path_to_results : str, optional
+        DESCRIPTION. The default is None.
+    my_pal : TYPE, optional
+        DESCRIPTION. The default is None.
+
+    Returns
+    -------
+    None.
+
+    """
+
+#     path_to_results = 'Results_PILOT'
+
+    color = my_pal[group]
+
+#     group_genes = pd.read_csv(path_to_results + \
+#                               "/significant_genes_" + cell_type + "_" + group + ".csv")
+
+    group_genes = data.loc[data[sig_col] == group, symbol].values
+    gp = GProfiler(return_dataframe = True)
+    if list(group_genes):
+        gprofiler_results = gp.profile(organism = 'hsapiens',
+                                       query = list(group_genes),
+                                       no_evidences = False,
+                                       sources = sources)
+    else:
+        return "Genes list is empty!"
+    
+    if(gprofiler_results.shape[0] == 0):
+        return "Not enough information!"
+    elif(gprofiler_results.shape[0] < num_gos):
+        num_gos = gprofiler_results.shape[0]
+
+    all_gprofiler_results = gprofiler_results.copy()
+    # display(all_gprofiler_results.head())
+       
+    # print(len(list(group_genes['symbol'].values)))
+    # selected_gps = gprofiler_results.loc[0:num_gos,['name', 'p_value']]
+    selected_gps = gprofiler_results.head(num_gos)[['name', 'p_value']]
+    
+    selected_gps['nlog10'] = -np.log10(selected_gps['p_value'].values)
+
+    for i in selected_gps.index:
+        split_name = "\n".join(tw.wrap(selected_gps.loc[i, 'name'], max_length))
+        selected_gps.loc[i, 'name'] = split_name
+    
+    figsize = (fig_h, fig_w)
+
+    plt.figure(figsize = figsize, dpi = 100)
+    plt.style.use('default')
+    sns.scatterplot(data = selected_gps, x = "nlog10", y = "name", s = 300, color = color)
+
+    plt.title('GO enrichment in ' + cell_type + ' associated with ' + group + \
+              '\n (number of genes: ' + str(len(list(group_genes))) + ")", fontsize = font_size + 2)
+
+    plt.xticks(size = font_size)
+    plt.yticks(size = font_size)
+
+    plt.ylabel("GO Terms", size = font_size)
+    plt.xlabel("-$log_{10}$ (P-value)", size = font_size)
+    
+    if save_plot and path_to_results is not None:
+        Path(path_to_results).mkdir(parents=True, exist_ok=True)
+        plt.savefig(path_to_results / f"{group}.pdf", bbox_inches = 'tight',
+                    facecolor = 'white', transparent = False)
+    plt.show()
+    
+    all_gprofiler_results.to_csv(Path(path_to_results) / f"{group}.csv")
