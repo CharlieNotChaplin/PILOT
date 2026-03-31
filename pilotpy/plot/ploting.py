@@ -1,6 +1,5 @@
 import os
 import warnings
-from genericpath import isfile
 from pathlib import Path
 
 # Data Science
@@ -8,7 +7,6 @@ import numpy as np
 import pandas as pd
 from scipy.stats import ttest_ind
 from sklearn import metrics
-from sklearn.preprocessing import label_binarize
 from statsmodels.stats.multitest import multipletests
 
 # Single-Cell/Bio
@@ -28,16 +26,10 @@ from matplotlib.font_manager import FontProperties
 from matplotlib.image import imread
 from matplotlib.lines import Line2D
 
-
-# Graphs/Network
-from sknetwork.clustering import Louvain
-
 from ..tools.Gene_cluster_specific_functions import *
 
 # Configurations
 warnings.filterwarnings('ignore')
-
-
 
 # CHANGED
 # replaced os.path with pathlib
@@ -46,7 +38,6 @@ warnings.filterwarnings('ignore')
 # A lot of function header formatting
 
 
-# done
 def trajectory(adata,
                n_evecs = 2, 
                epsilon =1, 
@@ -168,8 +159,7 @@ def trajectory(adata,
     
     adata.uns['embedding']=embedding
     
-
-# done    
+   
 def heatmaps(adata,figsize=(12,12),col_cluster=True,row_cluster=True,cmap='Blues_r',font_scale=2):
     
     """
@@ -220,7 +210,6 @@ def heatmaps(adata,figsize=(12,12),col_cluster=True,row_cluster=True,cmap='Blues
     plt.close(fig)
  
 
-# done 
 def heatmaps_df(df, figsize=(12, 12), col_cluster=True, row_cluster=True, cmap='Blues_r'):
     """
     Plot heatmaps of cost matrix and Wasserstein distances.
@@ -254,8 +243,7 @@ def heatmaps_df(df, figsize=(12, 12), col_cluster=True, row_cluster=True, cmap='
                    xticklabels=True);
     plt.savefig(plot_path / 'Proportions of cell types for samples over trajectory.pdf')
     
-       
-# done
+
 def fit_pricipla_graph(adata,NumNodes=20,source_node=0,show_text=True,Do_PCA=False,figsize=(12,12),X_color='r', Node_color='k', DimToPlot=[0, 1],facecolor='white',title='Principal graph'):
     
     """
@@ -310,7 +298,6 @@ def fit_pricipla_graph(adata,NumNodes=20,source_node=0,show_text=True,Do_PCA=Fal
     adata.uns['pseudotime']=pseudotime
     
 
-# done 
 def clustering_emd(adata,res=0.3,metric='cosine',groupby_col='Leiden',swap_axes=False,cmap="Blues_r",dendrogram=True,show_gene_labels=True,var_group_rotation=45,figsize=[12,12],save=False,sorter_leiden=None):
     
     """
@@ -395,8 +382,7 @@ def clustering_emd(adata,res=0.3,metric='cosine',groupby_col='Leiden',swap_axes=
     sc.pl.heatmap(adata_emd,adata_emd.obs.sampleID,groupby=[groupby_col],swap_axes=swap_axes,cmap=cmap,dendrogram=dendrogram,show_gene_labels=show_gene_labels,var_group_rotation=var_group_rotation,figsize=figsize,save=save)
     return proportion_df
     
-    
-# done
+
 def Sil_computing(EMD, real_labels, metric='cosine'):
     """
     Compute the Silhouette score based on Wasserstein distances.
@@ -420,7 +406,6 @@ def Sil_computing(EMD, real_labels, metric='cosine'):
     return Silhouette
 
 
-# done
 def select_best_sil(adata,resolutions=[],marker='o',figsize=(10,10),facecolor="white",metric='cosine',path=None,start=0.2,step=0.1,end=2):
     """
     Parameters
@@ -497,7 +482,6 @@ def select_best_sil(adata,resolutions=[],marker='o',figsize=(10,10),facecolor="w
     plt.show()
     
 
-# done
 def cell_type_diff_two_sub_patient_groups(proportions: pd.DataFrame = None,
                                           cell_types: list = None,
                                           labels:str = 'Predicted_Labels',
@@ -593,8 +577,7 @@ def cell_type_diff_two_sub_patient_groups(proportions: pd.DataFrame = None,
     plt.savefig(plot_path / f"Cell type diff {group1} VS {group2}.pdf",
                           facecolor = 'white')
     
-    
-# done    
+   
 def plot_cell_types_distributions(proportions: pd.DataFrame = None,
                                   cell_types: list = None,
                                   labels:str = 'Predicted_Labels',
@@ -658,7 +641,6 @@ def plot_cell_types_distributions(proportions: pd.DataFrame = None,
     plt.show()
 
 
-
 def gene_annotation_cell_type_subgroup(
     data: pd.DataFrame = None,
     cell_type: str = "Unknown",
@@ -677,8 +659,57 @@ def gene_annotation_cell_type_subgroup(
     marker_size: int = 300
 ):
     """
-    Unifies GO enrichment analysis. 
-    Handles direct DataFrame input (from DE analysis) or CSV loading.
+    Performs GO enrichment analysis for a specific cell-type subgroup and 
+    visualizes the top enriched terms.
+
+    Parameters
+    ----------
+    data : pandas.DataFrame, optional
+        A dataframe containing gene significance labels. If None, the function 
+        attempts to load genes from a CSV file based on the `path_to_results`.
+    cell_type : str, optional
+        The specific cell type being analyzed. Used for path naming and 
+        plot titles. Default is "Unknown".
+    group : str, optional
+        The specific group label (e.g., "Upregulated") to filter for in 
+        `sig_col`.
+    symbol : str, optional
+        The column name in `data` containing gene symbols. Default is 'gene'.
+    sig_col : str, optional
+        The column name in `data` that defines the significance group. 
+        Default is 'significant_gene'.
+    sources : list, optional
+        The g:Profiler data sources to query (e.g., ["GO:BP", "KEGG"]). 
+        If None, queries all default sources.
+    num_gos : int, optional
+        The maximum number of top GO terms to display in the plot. Default is 10.
+    figsize : tuple, optional
+        The dimensions of the output plot. Default is (6, 4).
+    font_size : int, optional
+        The base font size for plot text elements. Default is 12.
+    max_length : int, optional
+        The character limit for wrapping GO term names on the y-axis. 
+        Default is 50.
+    path_to_results : str, optional
+        The root directory for reading data and saving results. 
+        Default is 'Results_PILOT'.
+    my_pal : dict, optional
+        A dictionary mapping group names to specific colors. 
+        Default is None (defaults to 'tab:blue').
+    save_plot : bool, optional
+        Whether to save the plot as a PDF and the full results as a CSV. 
+        Default is True.
+    organism : str, optional
+        The organism ID for g:Profiler (e.g., 'hsapiens', 'mmusculus'). 
+        Default is 'hsapiens'.
+    marker_size : int, optional
+        The size of the dots in the scatter plot. Default is 300.
+
+    Returns
+    -------
+    None or str
+        Displays a plot and saves files if `save_plot` is True. 
+        Returns an error string if no data is found or enrichment fails.
     """
     
     base_path = Path(path_to_results)
@@ -745,7 +776,6 @@ def gene_annotation_cell_type_subgroup(
     plt.show()
 
 
-
 def exploring_specific_genes(cluster_name='cell_type',
                              font_size=24,
                              gene_list=[],
@@ -810,8 +840,7 @@ def exploring_specific_genes(cluster_name='cell_type',
     ax.axis('off')  # Turn off axis labels and ticks
     plt.show()
     
-   
-# done    
+  
 def go_enrichment(df,
                   num_gos=20,
                   source=None,
@@ -902,7 +931,6 @@ def go_enrichment(df,
     plt.savefig(save_path / f"{cell_type}.pdf", bbox_inches = bbox_inches, facecolor=facecolor, transparent=transparent)
     
 
-# done
 def plt_gene_cluster_differentiation(cellnames=['healthy_CM','Myofib'],font_size=22,p_value=0.01,fc_ther=0.5):
     """
     Generate and save plots showcasing gene expression patterns for selected cell clusters.
@@ -935,7 +963,6 @@ def plt_gene_cluster_differentiation(cellnames=['healthy_CM','Myofib'],font_size
                           p_value=p_value,fc_ther=fc_ther)
 
 
-# done
 def qq_plot_gene(target, data, sorted_best, gene_name):
     """
     Generate a QQ plot for a specific gene's performance.
@@ -975,7 +1002,6 @@ def qq_plot_gene(target, data, sorted_best, gene_name):
     pylab.show()
 
 
-# done
 def plot_best_matches_cell_types(target, 
                                  data,
                                  df,
@@ -1110,26 +1136,39 @@ def plot_best_matches_cell_types(target,
         j += 1
 
 
- 
 def plot_best_matches(target, data,df, sorted_best, scale_name, plot_color='tab:orange',num=16,width=25,height=25,x_lim=4,fontsize=24,alpha=0.5,cmap='viridis',color_back=None):
     """
     Plot the best-fitted models for different patterns.
 
     Parameters:
-        target (pd.DataFrame): The target data for gene activity.
-        data (pd.DataFrame): The data containing cell type labels.
-        df (pd.DataFrame): The data frame containing sample information.
-        sorted_best (dict): A dictionary containing the best-fitted model results for each factor, sorted by R-squared or modified R-squared.
-        scale_name (str): The name of the scale.
-        plot_color (str): Color of the plots.
-        num (int): Number of models to plot.
-        width (int): Width of the figure.
-        height (int): Height of the figure.
-        x_lim (int): X-axis limit.
-        fontsize (int): Font size for titles and labels.
-        alpha (float): Alpha value for data points.
-        cmap (str): Colormap for data points.
-        color_back (str): Background color of the plot.
+        target : pd.DataFrame
+            The target data for gene activity.
+        data : pd.DataFrame
+            The data containing cell type labels.
+        df : pd.DataFrame
+            The data frame containing sample information.
+        sorted_best : dict
+            A dictionary containing the best-fitted model results for each factor, sorted by R-squared or modified R-squared.
+        scale_name : str
+            The name of the scale.
+        plot_color : str, optional
+            Color of the plots. Default is 'tab:orange'.
+        num : int, optional
+            Number of models to plot. Default is 16.
+        width : int, optional
+            Width of the figure. Default is 25.
+        height : int, optional
+            Height of the figure. Default is 25.
+        x_lim : int, optional
+            X-axis limit. Drfault is 4.
+        fontsize : int, optional
+            Font size for titles and labels. Default is 24.
+        alpha : float, optional
+            Alpha value for data points. Default is 0.5.
+        cmap : str, optional
+            Colormap for data points. Default is 'viridis'.
+        color_back : str, optional
+            Background color of the plot. Default is None.
 
     Returns:
         None: This function generates the plot but does not return any value.
@@ -1262,21 +1301,27 @@ def plot_best_matches(target, data,df, sorted_best, scale_name, plot_color='tab:
 
             counter=counter+1  
 
-    
-  
+ 
 def plot_two_genes(adata, sorted_best_WT, sorted_best_KO, gene_name, scale_name, plot_color1 = 'tab:blue', plot_color2 = 'tab:red'):
     
     """
     Plot the gene activity for two different conditions (e.g., WT and KO) along with their best-fitted models.
 
     Parameters:
-        adata (AnnData): An AnnData object containing the data.
-        sorted_best_WT (dict): A dictionary containing the best-fitted model results for the wild-type (WT) condition.
-        sorted_best_KO (dict): A dictionary containing the best-fitted model results for the knock-out (KO) condition.
-        gene_name (str): The name of the gene for which the activity is plotted.
-        scale_name (str): The name of the scale.
-        plot_color1 (str): Color for the WT condition plot (default is 'tab:blue').
-        plot_color2 (str): Color for the KO condition plot (default is 'tab:red').
+        adata : AnnData
+            An AnnData object containing the data.
+        sorted_best_WT : dict
+            A dictionary containing the best-fitted model results for the wild-type (WT) condition.
+        sorted_best_KO : dict
+            A dictionary containing the best-fitted model results for the knock-out (KO) condition.
+        gene_name : str
+            The name of the gene for which the activity is plotted.
+        scale_name : str
+            The name of the scale.
+        plot_color1 : str, optional
+            Color for the WT condition plot. Default is 'tab:blue'.
+        plot_color2 : str, optional
+            Color for the KO condition plot. Default is 'tab:red'.
 
     Returns:
         None: This function generates the plot but does not return any value.
@@ -1326,19 +1371,24 @@ def plot_two_genes(adata, sorted_best_WT, sorted_best_KO, gene_name, scale_name,
     ax.set_ylabel(scale_name)
     
 
-
 def plot_one_gene(target, data, sorted_best, gene_name, scale_name, plot_color):
     
     """
     Plot the gene activity and its best-fitted model for a single gene.
 
     Parameters:
-        target (pd.DataFrame): A Pandas DataFrame containing the target gene expression data.
-        data (pd.DataFrame): A Pandas DataFrame containing the data.
-        sorted_best (dict): A dictionary containing the best-fitted model results for multiple genes.
-        gene_name (str): The name of the gene for which the activity is plotted.
-        scale_name (str): The name of the scale.
-        plot_color (str): Color for the plot.
+        target : pd.DataFrame
+            A Pandas DataFrame containing the target gene expression data.
+        data : pd.DataFrame
+            A Pandas DataFrame containing the data.
+        sorted_best : dict
+            A dictionary containing the best-fitted model results for multiple genes.
+        gene_name : str
+            The name of the gene for which the activity is plotted.
+        scale_name : str
+            The name of the scale.
+        plot_color : str
+            Color for the plot.
 
     Returns:
         None: This function generates the plot but does not return any value.
@@ -1378,18 +1428,23 @@ def plot_one_gene(target, data, sorted_best, gene_name, scale_name, plot_color):
     ax.set_xlabel(pattern)
 
 
-
 def plot_gene(target, data, sorted_best, gene_name, scale_name, plot_color):
     """
     Plot gene expression data along with the best-fitted curve and statistical information.
 
     Parameters:
-        target (pd.DataFrame): A Pandas DataFrame containing gene expression data.
-        data (pd.DataFrame): A Pandas DataFrame containing additional data such as labels.
-        sorted_best (dict): A dictionary containing the best-fitted models for different genes.
-        gene_name (str): The name of the gene to plot.
-        scale_name (str): The name of the scale for the y-axis.
-        plot_color (str): The color to use for plotting.
+        target : pd.DataFrame
+            A Pandas DataFrame containing gene expression data.
+        data : pd.DataFrame
+            A Pandas DataFrame containing additional data such as labels.
+        sorted_best : dict
+            A dictionary containing the best-fitted models for different genes.
+        gene_name : str
+            The name of the gene to plot.
+        scale_name : str
+            The name of the scale for the y-axis.
+        plot_color : str
+            The color to use for plotting.
 
     Returns:
         None
@@ -1465,7 +1520,6 @@ def plot_gene(target, data, sorted_best, gene_name, scale_name, plot_color):
                           y = curve[10])
     p.draw()
     
-
 
 def plot_gene_specific(target, data, sorted_best, gene_name, scale_name, plot_color):
     
@@ -1588,7 +1642,6 @@ def plot_gene_specific(target, data, sorted_best, gene_name, scale_name, plot_co
                         )
     p.draw()
    
-  
 
 def plot_gene_distribtion(target, gene_name):
     """
@@ -1611,7 +1664,6 @@ def plot_gene_distribtion(target, gene_name):
     plt.yticks(size = 12, weight = 'bold')
     plt.xticks(size = 12, weight = 'bold')
     plt.show()
-
 
 
 def plot_gene_density(target, data, sorted_best, gene_name, scale_name, plot_color):
@@ -1640,7 +1692,6 @@ def plot_gene_density(target, data, sorted_best, gene_name, scale_name, plot_col
                           grid="y", linewidth=1, legend=False, overlap=0.5, figsize=(6,5),kind="kde", bins=80,
                           title=gene_name, ylabels=False,
                           colormap=cm.autumn_r)
-
 
 
 def plot_pval_rsq_correlation(table, feature1, feature2, show_fit = True, log_transform = False):
@@ -1695,7 +1746,6 @@ def plot_pval_rsq_correlation(table, feature1, feature2, show_fit = True, log_tr
     plt.xticks(size = 14)
     plt.yticks(size = 14)
     plt.show()
-
 
 
 def plot_condition(target, data, sorted_best, condition_type, scale_name, plot_color):
@@ -1793,7 +1843,6 @@ def plot_condition(target, data, sorted_best, condition_type, scale_name, plot_c
             i += 1
 
 
-
 def plot_6_best(target, data, sorted_best, scale_name, plot_color):
     """
     Plot the 6 best-fitted models for each pattern type (linear, quadratic, linear_quadratic) and regulation direction (up, down) in gene expression.
@@ -1847,12 +1896,9 @@ def plot_6_best(target, data, sorted_best, scale_name, plot_color):
             ax.set_xlabel(patt)
             k += 1
             
-    
 
 def plot_hor_vs_vert(data, subplot, x, y, c, xlabel, ylabel, rotation,
                      tick_bottom, tick_left, title,fontsize=24):
-    
-    
     
     '''
     Plot horizontal and vertical bar charts using Seaborn.
@@ -1901,7 +1947,6 @@ def plot_hor_vs_vert(data, subplot, x, y, c, xlabel, ylabel, rotation,
     return None
 
 
-# done
 def map_color(
     df,
     fc_thr,
@@ -2005,7 +2050,6 @@ def map_color(
     return df, hue_order, palette
 
 
-# done
 def volcano_plot(
     # input modes (mutually exclusive)
     data=None,                    # DataFrame mode (provide data, symbol_Col, fc_col, pval_col)
@@ -2246,8 +2290,9 @@ def volcano_plot(
                     )
                 )
     if texts:
+        #adjust_text(texts, arrowprops=dict(arrowstyle="->", color='black', lw=1))
         adjust_text(texts)
-
+        
     # Legend
     if feature1 is None:
         feature1 = "group1"
@@ -2296,7 +2341,6 @@ def volcano_plot(
         )
 
     plt.show()
-
 
 
 def plot_stats_by_pattern(cluster_names: list = None,
