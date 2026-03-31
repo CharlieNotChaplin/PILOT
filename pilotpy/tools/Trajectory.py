@@ -5,16 +5,9 @@ import os
 import seaborn as sns
 import scipy
 import matplotlib.pyplot as plt
-import pydiffmap
 from sklearn import metrics
-from pydiffmap import diffusion_map
-from sklearn.neighbors import NearestCentroid
 from sklearn.metrics.cluster import rand_score
-from scipy.spatial import distance
 from sknetwork.clustering import Louvain
-from sklearn.preprocessing import label_binarize
-import time
-import sys 
 from genericpath import isfile
 from ..plot.ploting import *
 from .Cell_gene_selection import *
@@ -23,14 +16,15 @@ from .Gene_cluster_specific_functions import *
 import warnings
 import ot
 from logging import info, warn
-from cycler import cycler
-from matplotlib.image import imread
-from scipy.stats import mannwhitneyu, f_oneway, kruskal,spearmanr,kendalltau, chi2_contingency
-import anndata
+from scipy.stats import f_oneway, kruskal,spearmanr,kendalltau, chi2_contingency
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.patches import Patch
 warnings.filterwarnings('ignore')
 
+
+# CHANGES
+# removed unnecessary imports
+# fixed docstrings
 
 
 def wasserstein_distance(adata,emb_matrix='X_PCA',
@@ -114,9 +108,6 @@ clusters_col=clusters_col,sample_col=sample_col,status=status)
     else:
         adata.uns['real_labels']=return_real_labels(annot)
       
-        
-
-
 
 def load_h5ad(path):
     """
@@ -138,10 +129,6 @@ def load_h5ad(path):
     else:
         print('There is no such data, check the path or name')
     
-    
-    
-
-
 
 def set_path_for_results():
     """
@@ -162,10 +149,6 @@ def set_path_for_results():
     else:
         
         return 'Results_PILOT/plots'
-
- 
-
-
 
 
 def extract_annot_expression(adata,columns=['cell_type_original','patient_region','region','X_pca'],reclustering=False,reduction=False,resu=0.1,max_value=10,target_sum=1e4): 
@@ -228,9 +211,6 @@ def extract_annot_expression(adata,columns=['cell_type_original','patient_region
     return data,annot    
 
 
-
-
-
 def extract_data_anno_scRNA_from_h5ad(adata,emb_matrix='PCA',clusters_col='cell_type',sample_col='sampleID',status='status'):
     """
     This function extracts the needed inputs for PILOT(pathomics)
@@ -266,7 +246,6 @@ def extract_data_anno_scRNA_from_h5ad(adata,emb_matrix='PCA',clusters_col='cell_
     return data,annot
 
 
-
 def extract_data_anno_pathomics_from_h5ad(adata,var_names=[],clusters_col='Cell_type',sample_col='sampleID',status='status'):
     """
     This function extracts the needed inputs for PILOT (scRNA)
@@ -298,10 +277,7 @@ def extract_data_anno_pathomics_from_h5ad(adata,var_names=[],clusters_col='Cell_
     
     return data,annot
 
-              
 
-       
-    
 def load_annot(path,name):
     
     """
@@ -333,8 +309,6 @@ def load_annot(path,name):
             except (Exception):
                 warn("loading " + name + "failed, check the path/name of this data")
                 
-                
-
                      
 def load_expression(path,name):
     """
@@ -368,11 +342,6 @@ def load_expression(path,name):
             except (Exception):
                 warn("loading " + name + " failed, check the path/name of this data")
         
-   
-
-
-              
-    
 
 def Cluster_Representations(df, cell_col = 0, sample_col = 1,regulizer=0.2,normalization=True): 
     """
@@ -436,8 +405,6 @@ def Cluster_Representations(df, cell_col = 0, sample_col = 1,regulizer=0.2,norma
     return dict
 
 
-
-
 def cost_matrix(annot,data,metric='cosine'):
     """
     Compute the cost matrix to find distances between clusters/cell-types.
@@ -473,7 +440,6 @@ def cost_matrix(annot,data,metric='cosine'):
     cost=cost.set_index('cell_types')
          
     return dis,cost
-
 
 
 def wasserstein_d(Clu_rep, cost,regularized = "unreg", reg = 0.1):
@@ -521,7 +487,6 @@ def wasserstein_d(Clu_rep, cost,regularized = "unreg", reg = 0.1):
     emd=emd.set_index('sampleID')
     
     return EMD,emd
-
 
 
 def Clustering(EMD, df, category = 'status', sample_col=1,res = 0.01,metric ='cosine',steper=0.01):
@@ -588,7 +553,6 @@ def Clustering(EMD, df, category = 'status', sample_col=1,res = 0.01,metric ='co
     return labels, S, true_labels;
 
 
-
 def Sil_computing(EMD, real_labels, metric='cosine'):
     """
     Compute the Silhouette score based on Wasserstein distances.
@@ -611,9 +575,7 @@ def Sil_computing(EMD, real_labels, metric='cosine'):
     #print("Silhouette score: ", Silhouette) 
     return Silhouette
 
-
-      
-        
+    
 def return_real_labels(df, category = 'status', sample_col=1):
     """
     Load Annotaion of the data.
@@ -641,7 +603,6 @@ def return_real_labels(df, category = 'status', sample_col=1):
     
     return true_labels
         
-
 
 def cell_importance(adata,
                     width = 20,
@@ -800,8 +761,6 @@ def cell_importance(adata,
     adata.uns['orders'] = pathies_cell_proportions[['sampleID', 'Time_score']]
  
 
-
-
 def extract_cells_from_gene_expression(adata,sample_col,col_cell,cell_list=[],normalize=True):
     """
     Extract gene expression data for specific cells and associate them with pseudotime.
@@ -852,11 +811,7 @@ def extract_cells_from_gene_expression(adata,sample_col,col_cell,cell_list=[],no
 
         return joint
 
-
-
-
-
-            
+         
 def genes_importance(adata,name_cell,col='Time_score',genes_index=[],p_value=0.05,max_iter_huber=100,epsilon_huber=1.35,x_lim=4,width=20,height=30,store_data=True,genes_interesting=[],modify_r2 = False,model_type = 'HuberRegressor',fontsize=8,alpha=0.5,cmap='viridis',color_back=None,save_as_pdf=False,plot_genes=True,colnames=[],sample_col='sampleID',col_cell='cell_types',normalize=True):
     
     """
@@ -994,8 +949,6 @@ def genes_importance(adata,name_cell,col='Time_score',genes_index=[],p_value=0.0
                 plot_best_matches(RNA_target, RNA_data,data, filtered_dict, "Gene expression",             plot_color='tab:orange',num=len(filtered_dict.keys()),width=width,height=height,x_lim=x_lim,fontsize=fontsize,alpha=alpha,cmap=cmap,color_back=color_back)
                 plt.savefig(path+'/Markers/'+name_cell+'/'+'Interesting genes_ranking for cell type '+name_cell+'.png')
 
-
-
     
 def reclustering_data(adata,resu=0.01,normalization=False,target_sum=1e6,n_neighbor=15,method_='umap', metric_t = 'cosine',mode='distances',origine_scr_rna=False,dimension_rect=False,n_component=25):
     """
@@ -1062,9 +1015,6 @@ def reclustering_data(adata,resu=0.01,normalization=False,target_sum=1e6,n_neigh
     return labels
 
 
-            
-
-
 def cal_proportions(data):
     """
     Compute the proportion of sparsity for genes in the given data.
@@ -1095,7 +1045,6 @@ def cal_proportions(data):
     return pro            
             
 
-
 def extract_cells_from_pathomics(adata,path=None):
     """
     Extract clusters along with their features and pseudotime.
@@ -1124,7 +1073,6 @@ def extract_cells_from_pathomics(adata,path=None):
                     os.makedirs(path+'/cells/')
     joint.to_csv(path+'/cells/'+'All.csv')
  
-
 
 def gene_cluster_differentiation(adata,cellnames=[],sort=['Expression pattern', 'adjusted P-value', 'R-squared'],number_genes=10,cluster_names=[],font_size=14,gene_list=[]):
     
@@ -1170,8 +1118,6 @@ def gene_cluster_differentiation(adata,cellnames=[],sort=['Expression pattern', 
         infer_gene_cluster_differentiation(gene_list,path_to_results = path,font_size=font_size,start=start,
                                        end=end)
 
-
-    
     
 def morphological_features_importance(data,name_cell='All',col='Time_score',genes_index=[],p_value=0.05,max_iter_huber=100,epsilon_huber=1.35,x_lim=135,width=20,height=8,store_data=True,genes_interesting=[],modify_r2 = False,model_type = 
 'HuberRegressor',fontsize=10,alpha=0.5,cmap='viridis',color_back=None,save_as_pdf=False,plot_genes=True,path=None):
@@ -1294,10 +1240,6 @@ def morphological_features_importance(data,name_cell='All',col='Time_score',gene
                 plot_best_matches(RNA_target, RNA_data,data, filtered_dict, "Gene expression",             plot_color='tab:orange',num=len(filtered_dict.keys()),width=width,height=height,x_lim=x_lim,fontsize=fontsize,alpha=alpha,cmap=cmap,color_back=color_back)
                 plt.savefig(path+'/Markers/'+name_cell+'/'+'Interesting Morphological_features_ranking for cell type '+name_cell+'.png')
 
-                
-
-                
-
 
 def norm_morphological_features(path=None,column_names=[],name_cell=None):
     """
@@ -1359,6 +1301,22 @@ def results_gene_cluster_differentiation(cluster_name=None,sort_columns=['pvalue
 
 
 def detect_numeric_values(series):
+    """
+    Extracts and converts all valid numeric entries from a collection, 
+    ignoring non-numeric elements.
+
+    Parameters
+    ----------
+    series : iterable
+        A collection of values (e.g., list, tuple, or pandas Series) 
+        that may contain a mix of numeric and non-numeric types.
+
+    Returns
+    -------
+    list of float
+        A list containing all values from the input that could be 
+        successfully cast to a float.
+    """
     numeric_values = []
 
     for value in series:
@@ -1427,8 +1385,22 @@ def correlation_categorical_with_trajectory(adata, sample_col='sampleID', featur
     return df_results_sorted
 
 
-
 def detect_values_to_remove(series):
+    """
+    Identifies all elements in a collection that cannot be converted to a numeric type.
+
+    Parameters
+    ----------
+    series : iterable
+        A collection of values (e.g., list, tuple, or pandas Series) 
+        that may contain mixed data types.
+
+    Returns
+    -------
+    list
+        A list containing the original values from `series` that 
+        raised a ValueError during float conversion.
+    """
     values_to_remove = []
 
     for value in series:
@@ -1440,6 +1412,7 @@ def detect_values_to_remove(series):
             values_to_remove.append(value)
 
     return values_to_remove
+
 
 def correlation_numeric_with_trajectory(adata, sample_col='sampleID', features=[],sort_column='Spearman_PValue'):
     """
@@ -1490,8 +1463,6 @@ def correlation_numeric_with_trajectory(adata, sample_col='sampleID', features=[
     df_results = df_results[df_results['Spearman_PValue'].astype(float)< 0.05]
     df_results_sorted = df_results.sort_values(by=sort_column)
     return df_results_sorted
-
-
 
 
 def correlation_categorical_with_clustering(adata, proportion_df, sample_col='sampleID', features=[],sort_column='ChiSquared_PValue'):
@@ -1547,6 +1518,7 @@ def correlation_categorical_with_clustering(adata, proportion_df, sample_col='sa
     df_results = df_results[df_results['ChiSquared_PValue'].astype(float)< 0.05]
     df_results_sorted = df_results.sort_values(by=sort_column)
     return df_results_sorted
+
 
 def correlation_numeric_with_clustering(adata, proportion_df, sample_col='sampleID', features=[],sort_column='ANOVA_P_Value'):
     
@@ -1683,9 +1655,8 @@ def clinical_variables_corr_sub_clusters(adata,sorter_order=None,size_fig=(12,12
         clustermap.savefig("heatmap.pdf")
 
 
-
 def Precomputed_distance(adata,distances,cost_df,features_matrix,emb_matrix='X_PCA',
-clusters_col='cell_types',sample_col='sampleID',status='status'):
+                         clusters_col='cell_types',sample_col='sampleID',status='status'):
     """
     Store the Precomputed distance among samples in the object.
 
@@ -1726,4 +1697,3 @@ clusters_col=clusters_col,sample_col=sample_col,status=status)
     adata.uns['EMD'] =distances
     adata.uns['real_labels']=return_real_labels(annot)
       
-
