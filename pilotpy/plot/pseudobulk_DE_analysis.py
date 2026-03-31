@@ -25,8 +25,13 @@ import matplotlib.pyplot as plt
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.ds import DeseqStats
 
-from .ploting import gene_annotation_cell_type_subgroup
-# 
+from .ploting import gene_annotation_cell_type_subgroup, volcano_plot
+
+# CHANGES
+# fixed all docstrings
+# removed r code and any related unnecessary functions
+# updated pseudobulk to use other volcano plot function
+# fixed imports
 
 
 def plot_cell_numbers(adata, 
@@ -36,30 +41,35 @@ def plot_cell_numbers(adata,
                       celltype_col: str = "cell_types",
                       sample_col: str = "sampleID",
                       my_pal = None):
-    """
-    
+    """   
 
     Parameters
     ----------
-    adata : TYPE
-        DESCRIPTION.
-    proportion_df : TYPE
-        DESCRIPTION.
+    adata : AnnData
+        Annotated data object containing single-cell gene expression and metadata.
+    proportion_df : pandas.DataFrame
+        A dataframe indexed by sample IDs that contains group or cluster assignments for each sample.
     cell_type : str, optional
-        DESCRIPTION. The default is None.
+        The specific cell type to filter for from the `celltype_col`. 
+        The default is None.
     cluster_col : str, optional
-        DESCRIPTION. The default is "Predicted_Labels".
+        The column name in `proportion_df` representing the group/cluster 
+        labels used for coloring the bars. The default is "Predicted_Labels".
     celltype_col : str, optional
-        DESCRIPTION. The default is "cell_types".
+        The column name in `adata.obs` that contains cell type annotations. 
+        The default is "cell_types".
     sample_col : str, optional
-        DESCRIPTION. The default is "sampleID".
+        The column name in `adata.obs` representing unique sample identifiers. 
+        The default is "sampleID".
     my_pal : TYPE, optional
-        DESCRIPTION. The default is None.
+        A custom color palette mapping groups to colors. If None, it defaults 
+        to a red/blue scheme for 3 groups or 'tab10' otherwise. 
+        The default is None.
 
     Returns
     -------
     None.
-
+        The function generates and displays a matplotlib bar plot.
     """
     
     copy_cells = adata.obs.copy()
@@ -222,6 +232,36 @@ def compute_pseudobulk_PCA(
         return None
     
 def plotPCA_subgroups(proportions, deseq2_counts, cell_type, my_pal, cluster_col):
+
+    """
+    Performs feature selection via variance thresholding and visualizes 
+    samples using Principal Component Analysis (PCA).
+
+    Parameters
+    ----------
+    proportions : pandas.DataFrame
+        A dataframe containing metadata or cluster assignments for the samples. 
+        Must be indexed by sample IDs that match the index of `deseq2_counts`.
+    deseq2_counts : pandas.DataFrame
+        A dataframe of normalized expression counts (or similar features) 
+        where rows are samples and columns are features (e.g., genes).
+    cell_type : str
+        The name of the cell type being analyzed, used primarily for the 
+        plot title.
+    my_pal : dict
+        A dictionary mapping cluster/group labels to specific hex colors 
+        or matplotlib color names.
+    cluster_col : str
+        The column name in the `proportions` dataframe used to color 
+        the samples in the PCA plot.
+
+    Returns
+    -------
+    None
+        Displays a PCA scatter plot with explained variance ratios on 
+        the axes and a custom legend.
+    """
+
     # consider top variances features
     selector = VarianceThreshold(0.2)
     new_deseq2_counts = selector.fit_transform(deseq2_counts)
@@ -246,29 +286,51 @@ def plotPCA_subgroups(proportions, deseq2_counts, cell_type, my_pal, cluster_col
                               markerfacecolor=my_pal[k], markersize=15))
     ax.legend(handles=legend_elements, loc=1)
     plt.show()
-    
-def map_color_ps(a, low_fc_thrr, high_fc_thrr, pv_thrr):
-    log2FoldChange, symbol, nlog10 = a
-    if log2FoldChange >= high_fc_thrr and nlog10 >= pv_thrr:
-        return 'very higher'
-    elif log2FoldChange <= -low_fc_thrr and nlog10 >= pv_thrr:
-        return 'very lower'
-    else:
-        return 'no'
-    
-
-
-
-    
+      
 def get_sig_genes(data, 
-                  symbol, 
-                  foldchange, 
-                  p_value, 
-                  feature1, 
-                  feature2,
-                  low_fc_thr = 1, 
-                  high_fc_thr = 1, 
-                  pv_thr = 1):
+                  symbol: str, 
+                  foldchange: str, 
+                  p_value: str, 
+                  feature1: str, 
+                  feature2: str,
+                  low_fc_thr: float = 1, 
+                  high_fc_thr: float = 1, 
+                  pv_thr: float = 1):
+    """
+    Identifies and labels significantly differentially expressed genes based on 
+    log2 fold-change and p-value thresholds.
+
+    Parameters
+    ----------
+    data : AnnData
+        Annotated data object containing single-cell gene expression and metadata..
+    symbol : str
+        The column name in `data` containing gene symbols or identifiers.
+    foldchange : str
+        The column name in `data` containing log2 fold-change values.
+    p_value : str
+        The column name in `data` containing p-values (unadjusted or adjusted).
+    feature1 : str
+        The label to assign to significantly down-regulated genes (e.g., "Downregulated").
+    feature2 : str
+        The label to assign to significantly up-regulated genes (e.g., "Upregulated").
+    low_fc_thr : float, optional
+        The absolute log2 fold-change threshold for down-regulation. 
+        Genes must be <= -low_fc_thr. The default is 1.
+    high_fc_thr : float, optional
+        The absolute log2 fold-change threshold for up-regulation. 
+        Genes must be >= high_fc_thr. The default is 1.
+    pv_thr : float, optional
+        The threshold for significance on the -log10(p-value) scale. 
+        The default is 1 (which corresponds to p < 0.1).
+
+    Returns
+    -------
+    pandas.DataFrame
+        The original dataframe with an additional 'significant_gene' column containing 
+        the labels provided in `feature1` and `feature2` for genes passing thresholds.
+    """
+
     df = pd.DataFrame(columns=['log2FoldChange', 'nlog10', 'symbol'])
     df['log2FoldChange'] = data[foldchange]
     df['nlog10'] = -np.log10(data[p_value].values)
@@ -286,8 +348,6 @@ def get_sig_genes(data,
 
     return data
 
-
-
 def get_pseudobulk_DE(adata: ad.AnnData,
                       proportion_df: pd.DataFrame,
                       cell_type: str,
@@ -298,14 +358,17 @@ def get_pseudobulk_DE(adata: ad.AnnData,
                       cluster_col: str = "Predicted_Labels",
                       remove_samples: list = [],
                       my_pal: dict = None,
-                      path_to_results: str = 'Results_PILOT/',
-                      figsize: tuple = (30, 15),
+                      path_to_results: str = 'Results_PILOT',
+                      figsize: tuple = (15, 15),
                       num_gos: int = 10,
                       fig_h: int = 6,
                       fig_w: int = 4,
                       sources: list = ['GO:CC', 'GO:PB', 'GO:MF'],
                       fontsize: int = 14,
-                      load: bool = False
+                      load: bool = False,
+                      label_mode: str = "all",
+                      n_p: int = 10,
+                      n_n: int = 10
                      ):
     """
     Pseudobulk differential expression analysis pipeline using PyDESeq2.
@@ -350,6 +413,14 @@ def get_pseudobulk_DE(adata: ad.AnnData,
         Plot font size. The default is 14.
     load : bool, optional
         Load precomputed results instead of recomputing. The default is False.
+    label_mode : {'all', 'topN'}, optional
+        How to select labels for display.
+        'all': label all points that pass the thresholds.
+        'topN': label only the top n_p and n_n most significant points per side.
+    n_p : int, optional
+        Number of highest‑significance points on the positive log2FC side to label (used when label_mode == 'topN').
+    n_n : int, optional
+        Number of highest‑significance points on the negative log2FC side to label (used when label_mode == 'topN').
 
     Returns
     -------
@@ -373,7 +444,7 @@ def get_pseudobulk_DE(adata: ad.AnnData,
             my_pal = dict(zip(n_clusters, sns.color_palette("tab10", len(n_clusters))))
 
     # Output dir
-    save_path = path_to_results + "/Diff_Expressions_Results/" + str(cell_type) + "/pseudobulk/"
+    save_path = Path(path_to_results) / "Diff_Expressions_Results" / str(cell_type) / "pseudobulk"
     log_pv_thr = -np.log10(pv_thr)
 
     # Plot cell frequency QC
@@ -406,11 +477,10 @@ def get_pseudobulk_DE(adata: ad.AnnData,
         rld = compute_pseudobulk_PCA(cluster_counts, cluster_metadata)
     
         if rld is not None:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            rld.to_csv(save_path + "rld_PCA.csv")
+            save_path.mkdir(parents=True, exist_ok=True)
+            rld.to_csv(save_path / "rld_PCA.csv")
     else:
-        rld = pd.read_csv(save_path + "rld_PCA.csv", index_col=0)
+        rld = pd.read_csv(save_path / "rld_PCA.csv", index_col=0)
         
     # PCA plot QC
     deseq2_counts = rld.transpose()
@@ -425,9 +495,8 @@ def get_pseudobulk_DE(adata: ad.AnnData,
         if load == False:
             # Use adapted PyDESeq2 function1_adapted_to_function2
             res = compute_pseudobulk_DE(cluster_counts, cluster_metadata,
-                                       group1=groups[0],
-                                       group2=groups[1],
-                                       cluster_col=cluster_col)
+                                        group1=groups[0], group2=groups[1],
+                                        cluster_col=cluster_col)
             
             if res is not None:
                 # Extract single DataFrame 
@@ -436,21 +505,34 @@ def get_pseudobulk_DE(adata: ad.AnnData,
                 data = get_sig_genes(data, 'gene', 'log2FoldChange', 'padj', 
                                    groups[0], groups[1], fc_thr[j], fc_thr[j], log_pv_thr)
                 
-                data.to_csv(save_path + "/" + str(groups[1]) + "vs" + str(groups[0]) + "_DE.csv")
+                data.to_csv(save_path / f"{str(groups[1])}_VS_{str(groups[0])}_DE.csv")
         else:
-            data = pd.read_csv(save_path + "/" + str(groups[1]) + "vs" + str(groups[0]) + "_DE.csv", index_col=0)
+            data = pd.read_csv(save_path / f"{str(groups[1])}_VS_{str(groups[0])}_DE.csv", index_col=0)
 
         # Plot results
         if data is not None:
-            print("Plot volcano plot for " + str(groups[1]) + " vs " + str(groups[0]))
-            volcano_plot_ps(data, 'gene', 'log2FoldChange', 'padj', cell_type, 
-                          groups[0], groups[1], fc_thr[j], fc_thr[j], log_pv_thr, 
-                          figsize=figsize, output_path=save_path + "/",
-                          my_pal=my_pal, fontsize=fontsize)
+            print(f"Plot volcano plot for {str(groups[1])} vs {str(groups[0])}")
+            volcano_plot(data=data, 
+                         symbol_col='gene', 
+                         fc_col='log2FoldChange', 
+                         pval_col='padj', 
+                         cell_type=cell_type, 
+                         feature1=groups[0], 
+                         feature2=groups[1], 
+                         fc_thr=fc_thr[j], 
+                         pv_thr=log_pv_thr, 
+                         label_mode=label_mode,
+                         n_p=n_p,
+                         n_n=n_n,
+                         my_pal=my_pal, 
+                         figsize=figsize, 
+                         font_size=fontsize,
+                         output_path=save_path
+                        )
 
             # GO analysis for both groups
-            print("Plot GO analysis for " + str(groups[1]) + " vs " + str(groups[0]))
-            os.makedirs(save_path + "/" + str(groups[1]) + "vs" + str(groups[0]) + "/GOs/", exist_ok=True)
+            print(f"Plot GO analysis for {str(groups[1])} vs {str(groups[0])}")
+            Path(save_path / f"{str(groups[1])}vs{str(groups[0])}" / "GOs").mkdir(parents=True, exist_ok=True)
             for group in [groups[0], groups[1]]:
                 print("About to run gene annotation...")
                 print(cell_type)
@@ -470,7 +552,6 @@ def get_pseudobulk_DE(adata: ad.AnnData,
 #--------------------------------------------------------------------------------------------------------------------
 
 import rpy2.robjects as robjects
-import rpy2.robjects.numpy2ri
 from rpy2.robjects import pandas2ri
 
 from rpy2.rinterface_lib.callbacks import logger as rpy2_logger
@@ -478,18 +559,28 @@ import logging
 rpy2_logger.setLevel(logging.ERROR)
 pandas2ri.activate()
 
+def map_color_ps(a, low_fc_thrr, high_fc_thrr, pv_thrr):
+    log2FoldChange, symbol, nlog10 = a
+    if log2FoldChange >= high_fc_thrr and nlog10 >= pv_thrr:
+        return 'very higher'
+    elif log2FoldChange <= -low_fc_thrr and nlog10 >= pv_thrr:
+        return 'very lower'
+    else:
+        return 'no'
 
-def volcano_plot_ps(data, symbol, foldchange, p_value,
-                 cell_type,
-                 feature1,
-                 feature2,
-                 low_fc_thr = 1,
-                 high_fc_thr = 1,
-                 pv_thr = 1,
-                 figsize = (20,10),
-                 output_path = None,
-                 my_pal = None,
-                 fontsize: int = 14
+def volcano_plot_ps(data, 
+                    symbol, 
+                    foldchange, 
+                    p_value,
+                    feature1,
+                    feature2,
+                    low_fc_thr = 1,
+                    high_fc_thr = 1,
+                    pv_thr = 1,
+                    figsize = (20,10),
+                    output_path = None,
+                    my_pal = None,
+                    fontsize: int = 14
                 ):
     """
     
